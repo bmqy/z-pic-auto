@@ -72,7 +72,7 @@ final class Collector
             $added = 0;
             foreach ($items as $item) {
                 $normalized = $this->normalizeItem($item, $source);
-                if ($normalized === null || $this->repository->galleryExistsByFingerprint($normalized['fingerprint'])) {
+                if ($normalized === null || $this->repository->galleryExistsByIdentity($normalized['fingerprint'], $normalized['identity_source_url'])) {
                     continue;
                 }
                 $images = $this->prepareImages($normalized['images']);
@@ -237,13 +237,19 @@ final class Collector
         $urls = array_map(function (array $image) {
             return (string) $image['url'];
         }, $images);
+        $identitySourceUrl = trim((string) ($item['source_url'] ?? ''));
+        $sourceUrl = $identitySourceUrl;
+        if ($sourceUrl === '') {
+            $sourceUrl = trim((string) ($source['url'] ?? ''));
+        }
         return [
             'title' => text_slice($title, 180),
             'description' => text_slice($description, 1000),
             'category' => $category !== '' ? $category : '未分类',
-            'source_url' => (string) ($item['source_url'] ?? $source['url']),
+            'source_url' => $sourceUrl,
+            'identity_source_url' => $identitySourceUrl,
             'images' => $images,
-            'fingerprint' => sha1((string) ($item['source_url'] ?? '') . '|' . $title . '|' . implode('|', $urls)),
+            'fingerprint' => sha1($identitySourceUrl . '|' . $title . '|' . implode('|', $urls)),
         ];
     }
 

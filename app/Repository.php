@@ -57,6 +57,16 @@ final class Repository
         return (bool) $stmt->fetchColumn();
     }
 
+    public function galleryExistsByIdentity(string $fingerprint, string $sourceUrl): bool
+    {
+        if (trim($sourceUrl) === '') {
+            return $this->galleryExistsByFingerprint($fingerprint);
+        }
+        $stmt = $this->db->prepare('SELECT 1 FROM galleries WHERE fingerprint = ? OR source_url = ? LIMIT 1');
+        $stmt->execute([$fingerprint, $sourceUrl]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     public function slugExists(string $slug): bool
     {
         $stmt = $this->db->prepare('SELECT 1 FROM galleries WHERE slug = ? LIMIT 1');
