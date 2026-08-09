@@ -1,0 +1,9 @@
+.git
+.codex
+.env
+storage/*.sqlite
+storage/images/*
+Dockerfile
+docker-compose.yml
+docker-compose.prod.yml
+docker-compose.php72.yml

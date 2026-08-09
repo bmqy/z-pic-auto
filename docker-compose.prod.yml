@@ -1,0 +1,9 @@
+services:
+  zpic:
+    build: .
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/local.php:/var/www/html/config/local.php:ro
+      - ./storage:/var/www/html/storage
+    restart: unless-stopped

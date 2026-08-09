@@ -1,0 +1,9 @@
+services:
+  zpic:
+    build: .
+    ports:
+      - "18080:80"
+    volumes:
+      - ./config/local.docker.php:/var/www/html/config/local.php:ro
+      - ./storage:/var/www/html/storage
+    restart: unless-stopped

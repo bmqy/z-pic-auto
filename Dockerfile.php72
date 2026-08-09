@@ -1,0 +1,11 @@
+FROM php:7.2.5-apache
+
+# PHP 7.2.5 基础镜像自带本项目所需的常用扩展；这里只启用 Apache 重写。
+RUN a2enmod rewrite
+
+WORKDIR /var/www/html
+COPY . /var/www/html/
+RUN mkdir -p storage/images \
+    && chown -R www-data:www-data storage
+
+EXPOSE 80

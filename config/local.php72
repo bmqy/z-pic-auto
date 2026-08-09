@@ -1,0 +1,6 @@
+<?php
+declare(strict_types=1);
+
+$config = require __DIR__ . '/local.docker.php';
+$config['site_url'] = 'http://localhost:18072';
+return $config;

@@ -1,0 +1,9 @@
+/.env
+/.codex/
+/config/local.php
+/storage/*.sqlite
+/storage/*.sqlite3
+/storage/images/*
+!/storage/images/.gitkeep
+/storage-php72/*
+!/storage-php72/.gitkeep

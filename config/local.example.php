@@ -1,0 +1,61 @@
+<?php
+declare(strict_types=1);
+
+return [
+    'site_name' => 'Z-Pic Auto 图集站',
+    'site_url' => 'http://example.com',
+    'site_description' => '每日更新的授权图片合集与主题图集。',
+    'timezone' => 'Asia/Shanghai',
+    'admin_token' => '请替换为一段随机字符串',
+    'verify_ssl' => true,
+    // 老式虚拟主机没有系统 CA 时，使用站点目录内随站部署的 CA 证书包。
+    'ca_info' => __DIR__ . '/cacert.pem',
+    'database' => [
+        'driver' => 'mysql',
+        'host' => 'localhost',
+        'port' => 3306,
+        'name' => 'zpic_auto',
+        'user' => '数据库用户名',
+        'password' => '数据库密码',
+        // 兼容老式虚拟主机上的 MySQL 5.x。
+        'charset' => 'utf8',
+        // 如果虚拟主机没有 MySQL，可改为 sqlite，并填写 path。
+        'path' => __DIR__ . '/../storage/zpic.sqlite',
+    ],
+    'image_dir' => __DIR__ . '/../storage/images',
+    'image_url_prefix' => 'storage/images',
+    'download_images' => true,
+    'max_image_bytes' => 8 * 1024 * 1024,
+    'request_timeout' => 20,
+    'user_agent' => 'Z-Pic-Auto/1.0 (+http://example.com)',
+    'per_page' => 18,
+    'sources' => [
+        [
+            'name' => 'Wikimedia Commons 图片日',
+            'type' => 'rss',
+            'url' => 'https://commons.wikimedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=rss&language=en',
+            // 当前虚拟主机访问该站点持续超时，先停用避免拖慢每日任务；网络恢复后可改回 true。
+            'enabled' => false,
+            'max_items' => 1,
+            'max_images' => 1,
+            'request_timeout' => 8,
+            'license_note' => '逐张保留 Wikimedia Commons 文件页与授权信息。',
+        ],
+        [
+            'name' => 'NASA Photojournal 最新内容',
+            'type' => 'rss',
+            'url' => 'https://science.nasa.gov/feed/photojournal/latest-content/',
+            'enabled' => true,
+            'max_items' => 1,
+            'max_images' => 1,
+            'request_timeout' => 20,
+            'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA/JPL 等署名。',
+        ],
+    ],
+    'category_rules' => [
+        '风景' => ['风景', '山', '海', '旅行', '自然', 'landscape', 'nature'],
+        '人物' => ['人物', '肖像', 'portrait', 'people'],
+        '建筑' => ['建筑', '城市', 'architecture', 'city'],
+        '设计' => ['设计', '插画', 'design', 'illustration'],
+    ],
+];

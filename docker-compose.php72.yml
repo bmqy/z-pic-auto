@@ -1,0 +1,11 @@
+services:
+  zpic72:
+    build:
+      context: .
+      dockerfile: Dockerfile.php72
+    ports:
+      - "18072:80"
+    volumes:
+      - ./config/local.php72:/var/www/html/config/local.php:ro
+      - ./storage-php72:/var/www/html/storage
+    restart: "no"

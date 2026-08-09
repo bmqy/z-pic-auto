@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "title": "本地调试图集",
+      "description": "用于验证 JSON 采集、自动分类、本地图片归档和详情页生成。",
+      "category": "设计",
+      "source_url": "http://127.0.0.1/tests/fixtures/galleries.json#debug-gallery",
+      "images": [
+        {"url": "http://127.0.0.1/tests/fixtures/pixel.php", "alt": "本地测试图片"}
+      ]
+    }
+  ]
+}
