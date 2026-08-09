@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS galleries (
     UNIQUE KEY uq_galleries_fingerprint (fingerprint),
     KEY idx_galleries_created_at (created_at),
     KEY idx_galleries_category_id (category_id),
+    KEY idx_galleries_source_url (source_url(191)),
     CONSTRAINT fk_galleries_category FOREIGN KEY (category_id) REFERENCES categories(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 

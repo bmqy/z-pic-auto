@@ -47,4 +47,5 @@ CREATE TABLE IF NOT EXISTS collection_runs (
 
 CREATE INDEX IF NOT EXISTS idx_galleries_created_at ON galleries(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_galleries_category_id ON galleries(category_id);
+CREATE INDEX IF NOT EXISTS idx_galleries_source_url ON galleries(source_url);
 CREATE INDEX IF NOT EXISTS idx_images_gallery_id ON images(gallery_id, position);
