@@ -150,6 +150,117 @@ final class Repository
         return $gallery;
     }
 
+    public function adminGalleries(): array
+    {
+        $galleries = $this->db->query('SELECT g.*, c.name AS category_name FROM galleries g JOIN categories c ON c.id = g.category_id ORDER BY g.created_at DESC, g.id DESC')->fetchAll();
+        $imageStmt = $this->db->prepare('SELECT * FROM images WHERE gallery_id = ? ORDER BY position ASC, id ASC');
+        foreach ($galleries as &$gallery) {
+            $imageStmt->execute([(int) $gallery['id']]);
+            $gallery['images'] = $imageStmt->fetchAll();
+        }
+        unset($gallery);
+        return $galleries;
+    }
+
+    public function deleteGallery(int $galleryId): bool
+    {
+        $imageStmt = $this->db->prepare('SELECT local_path FROM images WHERE gallery_id = ?');
+        $imageStmt->execute([$galleryId]);
+        $localPaths = array_values(array_filter(array_map(function (array $image): string {
+            return (string) $image['local_path'];
+        }, $imageStmt->fetchAll())));
+
+        $this->db->beginTransaction();
+        try {
+            $deleteImages = $this->db->prepare('DELETE FROM images WHERE gallery_id = ?');
+            $deleteImages->execute([$galleryId]);
+            $deleteGallery = $this->db->prepare('DELETE FROM galleries WHERE id = ?');
+            $deleteGallery->execute([$galleryId]);
+            $deleted = $deleteGallery->rowCount() > 0;
+            $this->db->commit();
+        } catch (Throwable $error) {
+            $this->db->rollBack();
+            throw $error;
+        }
+
+        if ($deleted) {
+            $this->removeUnusedImageFiles($localPaths);
+        }
+        return $deleted;
+    }
+
+    public function deleteImage(int $imageId): bool
+    {
+        $stmt = $this->db->prepare('SELECT * FROM images WHERE id = ? LIMIT 1');
+        $stmt->execute([$imageId]);
+        $image = $stmt->fetch();
+        if (!$image) {
+            return false;
+        }
+
+        $galleryId = (int) $image['gallery_id'];
+        $this->db->beginTransaction();
+        try {
+            $delete = $this->db->prepare('DELETE FROM images WHERE id = ?');
+            $delete->execute([$imageId]);
+
+            $remainingStmt = $this->db->prepare('SELECT id, local_path, source_url FROM images WHERE gallery_id = ? ORDER BY position ASC, id ASC');
+            $remainingStmt->execute([$galleryId]);
+            $remainingImages = $remainingStmt->fetchAll();
+            $updatePosition = $this->db->prepare('UPDATE images SET position = ? WHERE id = ?');
+            foreach ($remainingImages as $position => $remainingImage) {
+                $updatePosition->execute([$position, (int) $remainingImage['id']]);
+            }
+
+            $coverPath = '';
+            if ($remainingImages) {
+                $coverPath = (string) ($remainingImages[0]['local_path'] !== '' ? $remainingImages[0]['local_path'] : $remainingImages[0]['source_url']);
+            }
+            $updateGallery = $this->db->prepare('UPDATE galleries SET cover_path = ?, updated_at = ? WHERE id = ?');
+            $updateGallery->execute([$coverPath, now_string(), $galleryId]);
+            $this->db->commit();
+        } catch (Throwable $error) {
+            $this->db->rollBack();
+            throw $error;
+        }
+
+        $this->removeUnusedImageFiles([(string) $image['local_path']]);
+        return true;
+    }
+
+    private function removeUnusedImageFiles(array $localPaths): void
+    {
+        $paths = array_values(array_unique(array_filter($localPaths)));
+        if (!$paths) {
+            return;
+        }
+        $countStmt = $this->db->prepare('SELECT COUNT(*) FROM images WHERE local_path = ?');
+        foreach ($paths as $localPath) {
+            $absolutePath = $this->storedImageAbsolutePath((string) $localPath);
+            if ($absolutePath === null) {
+                continue;
+            }
+            $countStmt->execute([(string) $localPath]);
+            if ((int) $countStmt->fetchColumn() === 0 && is_file($absolutePath)) {
+                @unlink($absolutePath);
+            }
+        }
+    }
+
+    private function storedImageAbsolutePath(string $localPath): ?string
+    {
+        $path = str_replace('\\', '/', trim($localPath));
+        $prefix = trim((string) ($this->config['image_url_prefix'] ?? 'storage/images'), '/') . '/';
+        if ($path === '' || strpos($path, $prefix) !== 0) {
+            return null;
+        }
+        $filename = substr($path, strlen($prefix));
+        if ($filename === '' || strpos($filename, '/') !== false || !preg_match('/^[A-Za-z0-9._-]+$/', $filename)) {
+            return null;
+        }
+        return rtrim((string) ($this->config['image_dir'] ?? ''), '/\\') . DIRECTORY_SEPARATOR . $filename;
+    }
+
     public function categories(): array
     {
         return $this->db->query('SELECT c.*, COUNT(g.id) AS gallery_count FROM categories c LEFT JOIN galleries g ON g.category_id = c.id AND g.published = 1 GROUP BY c.id ORDER BY gallery_count DESC, c.name ASC')->fetchAll();
