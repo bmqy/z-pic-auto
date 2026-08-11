@@ -1,0 +1,96 @@
+name: Actions 采集并上传图片
+
+on:
+  schedule:
+    # GitHub Actions 使用 UTC；每天北京时间 10:00 执行。
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: z-pic-auto-actions-collection
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Actions 采集
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 获取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP 运行环境
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, dom, mbstring, pdo_mysql, simplexml
+          coverage: none
+
+      - name: 检查采集配置
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in SITE_URL ADMIN_TOKEN DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD FTP_HOST FTP_USERNAME FTP_PASSWORD FTP_SERVER_DIR; do
+            if [[ -z "${!variable}" ]]; then
+              echo "缺少 GitHub Secret: ${variable}" >&2
+              exit 1
+            fi
+          done
+
+      - name: 执行 Actions 采集
+        id: collect
+        continue-on-error: true
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          VERIFY_SSL: ${{ secrets.VERIFY_SSL || '1' }}
+        shell: bash
+        run: |
+          set -u
+          php -d memory_limit=256M cron/collect.php
+
+      - name: 上传 Actions 采集的图片
+        id: upload_images
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./storage/images/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}/storage/images/
+          log-level: minimal
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+
+      - name: 汇总采集结果
+        if: ${{ steps.collect.outcome == 'failure' || steps.upload_images.outcome == 'failure' }}
+        shell: bash
+        run: |
+          echo "Actions 采集或图片 FTP 上传失败。" >&2
+          exit 1

@@ -19,6 +19,23 @@ if (is_file($envFile)) {
         $env[trim($key)] = $value;
     }
 }
+$environmentKeys = [
+    'SITE_URL',
+    'ADMIN_TOKEN',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_NAME',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_CHARSET',
+    'VERIFY_SSL',
+];
+foreach ($environmentKeys as $environmentKey) {
+    $environmentValue = getenv($environmentKey);
+    if ($environmentValue !== false) {
+        $env[$environmentKey] = (string) $environmentValue;
+    }
+}
 if (is_file($localFile) && filesize($localFile) > 0) {
     $local = require $localFile;
 } elseif (!empty($env['DB_USERNAME']) && isset($env['DB_PASSWORD'])) {

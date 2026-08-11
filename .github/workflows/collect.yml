@@ -1,9 +1,6 @@
 name: 定时采集图片
 
 on:
-  schedule:
-    # GitHub Actions 使用 UTC；每天北京时间 10:00 执行。
-    - cron: '0 2 * * *'
   workflow_dispatch:
 
 permissions:
