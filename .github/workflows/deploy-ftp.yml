@@ -167,7 +167,7 @@ jobs:
                   "        ],",
                   "    ],",
               ])
-          lines.extend(["]", ""])
+          lines.extend(["];", ""])
           expected = "\n".join(lines).encode("utf-8")
 
           ftp = FTP()
