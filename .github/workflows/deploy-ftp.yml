@@ -152,6 +152,21 @@ jobs:
           pexels_api_key = os.environ.get('PEXELS_API_KEY', '').strip()
           if pexels_api_key:
               lines.append(f"    'pexels_api_key' => {php_string(pexels_api_key)},")
+              lines.extend([
+                  "    'sources' => [",
+                  "        5 => [",
+                  "            'name' => 'Pexels 精选图片',",
+                  "            'type' => 'pexels',",
+                  "            'url' => 'https://api.pexels.com/v1/curated',",
+                  "            'enabled' => true,",
+                  "            'per_page' => 1,",
+                  "            'max_items' => 1,",
+                  "            'max_images' => 1,",
+                  "            'image_size' => 'large',",
+                  "            'request_timeout' => 20,",
+                  "        ],",
+                  "    ],",
+              ])
           lines.extend(["]", ""])
           expected = "\n".join(lines).encode("utf-8")
 
@@ -172,22 +187,26 @@ jobs:
                   remote = buffer.getvalue()
               except Exception:
                   remote = None
-              if remote != expected:
+              needs_sync = remote != expected
+              synced = False
+              if needs_sync:
                   ftp.storbinary("STOR local.php", BytesIO(expected))
+                  verification = BytesIO()
+                  ftp.retrbinary("RETR local.php", verification.write)
+                  if verification.getvalue() != expected:
+                      raise RuntimeError("上传后的 config/local.php 回读内容不一致。")
+                  synced = True
           finally:
               try:
                   ftp.quit()
               except Exception:
                   pass
 
-          needs_sync = remote != expected
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"needs_sync={'true' if needs_sync else 'false'}\n")
           print(f"production_config_needs_sync={needs_sync}")
-          if needs_sync:
-              print("production_config_synced=true")
-          else:
-              print("production_config_synced=false")
+          print(f"production_config_synced={synced}")
+          print("production_config_verified=true")
           PY
 
       - name: Sync site files (attempt 1)
