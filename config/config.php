@@ -29,6 +29,7 @@ $environmentKeys = [
     'DB_PASSWORD',
     'DB_CHARSET',
     'VERIFY_SSL',
+    'PEXELS_API_KEY',
 ];
 foreach ($environmentKeys as $environmentKey) {
     $environmentValue = getenv($environmentKey);
@@ -66,6 +67,10 @@ if (is_file($localFile) && filesize($localFile) > 0) {
     throw new RuntimeException('未找到 config/local.php，也未在根目录 .env 找到 DB_USERNAME/DB_PASSWORD。');
 }
 $config = array_replace_recursive($defaults, is_array($local) ? $local : []);
+
+if (isset($env['PEXELS_API_KEY']) && trim((string) $env['PEXELS_API_KEY']) !== '') {
+    $config['pexels_api_key'] = trim((string) $env['PEXELS_API_KEY']);
+}
 
 date_default_timezone_set((string) $config['timezone']);
 

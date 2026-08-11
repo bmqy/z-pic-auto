@@ -17,6 +17,9 @@ $repository->ensureSchema();
 require_once __DIR__ . '/../app/Collector.php';
 $collector = new Collector($repository, $config);
 foreach ((array) $config['sources'] as $source) {
+    if (!($source['enabled'] ?? false)) {
+        continue;
+    }
     $result = $collector->runSource($source);
     echo $result['source'] . "\t" . $result['status'] . "\t" . $result['message'] . PHP_EOL;
 }

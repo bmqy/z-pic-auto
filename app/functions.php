@@ -113,9 +113,17 @@ function normalize_url(string $url, string $base = ''): string
     return '';
 }
 
-function request_url(string $url, int $timeout): array
+function request_url(string $url, int $timeout, array $requestHeaders = []): array
 {
-    $headers = "User-Agent: " . cfg('user_agent', 'Z-Pic-Auto') . "\r\nAccept: */*\r\n";
+    $headers = [
+        'User-Agent: ' . cfg('user_agent', 'Z-Pic-Auto'),
+        'Accept: */*',
+    ];
+    foreach ($requestHeaders as $requestHeader) {
+        if (is_string($requestHeader) && trim($requestHeader) !== '') {
+            $headers[] = trim($requestHeader);
+        }
+    }
     if (function_exists('curl_init')) {
         $handle = curl_init($url);
         $curlOptions = [
@@ -124,7 +132,7 @@ function request_url(string $url, int $timeout): array
             CURLOPT_CONNECTTIMEOUT => $timeout,
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_USERAGENT => (string) cfg('user_agent', 'Z-Pic-Auto'),
-            CURLOPT_HTTPHEADER => ['Accept: */*'],
+            CURLOPT_HTTPHEADER => $headers,
         ];
         if (!cfg('verify_ssl', true)) {
             $curlOptions[CURLOPT_SSL_VERIFYPEER] = false;
@@ -149,7 +157,7 @@ function request_url(string $url, int $timeout): array
     $context = stream_context_create(['http' => [
         'method' => 'GET',
         'timeout' => $timeout,
-        'header' => $headers,
+        'header' => implode("\r\n", $headers) . "\r\n",
         'ignore_errors' => true,
     ]]);
     $body = @file_get_contents($url, false, $context);

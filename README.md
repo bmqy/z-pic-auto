@@ -130,3 +130,22 @@ docker compose -f docker-compose.prod.yml up --build -d
 ## 说明
 
 “自动收录”只能通过生成可抓取的高质量页面、站点地图和 RSS 来辅助搜索引擎发现，不能保证搜索引擎收录或流量增长。图片的版权、来源许可、删除请求和隐私合规需要由站长负责。
+
+## Pexels API 来源
+
+项目支持通过 Pexels API 的规范接口抓取图片。先在服务器环境设置 `PEXELS_API_KEY`，然后在 `config/local.php` 的 `sources` 中启用模板里的来源：
+
+```php
+[
+    'name' => 'Pexels 精选图片',
+    'type' => 'pexels',
+    'url' => 'https://api.pexels.com/v1/curated',
+    'enabled' => true,
+    'per_page' => 1,
+    'max_items' => 1,
+    'max_images' => 1,
+    'image_size' => 'large',
+],
+```
+
+按关键词搜索时，将 `url` 改为 `https://api.pexels.com/v1/search`，并增加 `'query' => 'nature'`。采集结果会保留 Pexels 照片页来源链接，并将摄影师署名写入图集描述。请遵守 [Pexels API Guidelines](https://www.pexels.com/api/documentation/) 的回链、署名和请求频率要求。

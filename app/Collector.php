@@ -189,11 +189,22 @@ final class Collector
     private function fetchItems(array $source): array
     {
         $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
+        $type = strtolower((string) ($source['type'] ?? 'json'));
+        $requestUrl = $this->buildSourceRequestUrl($source, $type);
+        $requestHeaders = [];
+        if ($type === 'pexels') {
+            $apiKey = trim((string) ($source['api_key'] ?? ($this->config['pexels_api_key'] ?? '')));
+            if ($apiKey === '') {
+                throw new RuntimeException('Pexels 来源缺少 API Key，请配置 PEXELS_API_KEY 或 config/local.php。');
+            }
+            $requestHeaders[] = 'Authorization: ' . $apiKey;
+            $requestHeaders[] = 'Accept: application/json';
+        }
         $body = '';
         $status = 0;
         $error = '';
         for ($attempt = 0; $attempt < 3; $attempt++) {
-            [$body, $status, , $error] = request_url((string) $source['url'], max(5, $timeout));
+            [$body, $status, , $error] = request_url($requestUrl, max(5, $timeout), $requestHeaders);
             if ($body !== '' && ($status === 0 || $status < 400)) {
                 break;
             }
@@ -207,13 +218,14 @@ final class Collector
             $sourceName = trim((string) ($source['name'] ?? $source['url']));
             throw new RuntimeException('来源请求失败 [' . $sourceName . '] ' . (string) $source['url'] . '，HTTP ' . $status . ' ' . $error);
         }
-        $type = strtolower((string) ($source['type'] ?? 'json'));
         if ($type === 'json') {
-            $items = $this->parseJson($body, (string) $source['url']);
+            $items = $this->parseJson($body, $requestUrl);
+        } elseif ($type === 'pexels') {
+            $items = $this->parsePexels($body, $source);
         } elseif ($type === 'rss' || $type === 'xml') {
-            $items = $this->parseRss($body, (string) $source['url']);
+            $items = $this->parseRss($body, $requestUrl);
         } elseif ($type === 'html') {
-            $items = $this->parseHtml($body, (string) $source['url'], (array) ($source['selectors'] ?? []));
+            $items = $this->parseHtml($body, $requestUrl, (array) ($source['selectors'] ?? []));
         } else {
             throw new InvalidArgumentException('不支持的来源类型：' . $source['type']);
         }
@@ -227,6 +239,27 @@ final class Collector
             unset($item);
         }
         return $items;
+    }
+
+    /**
+     * 根据来源配置构造请求地址，Pexels 的参数通过查询字符串发送。
+     */
+    private function buildSourceRequestUrl(array $source, string $type): string
+    {
+        $url = trim((string) ($source['url'] ?? ''));
+        if ($type !== 'pexels') {
+            return $url;
+        }
+        $params = (array) ($source['params'] ?? []);
+        foreach (['query', 'orientation', 'size', 'color', 'locale', 'page', 'per_page'] as $key) {
+            if (array_key_exists($key, $source) && $source[$key] !== '' && $source[$key] !== null) {
+                $params[$key] = $source[$key];
+            }
+        }
+        if ($params === []) {
+            return $url;
+        }
+        return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($params);
     }
 
     private function parseJson(string $body, string $baseUrl): array
@@ -263,6 +296,52 @@ final class Collector
                 'category' => (string) ($item['category'] ?? $item['tag'] ?? ''),
                 'source_url' => normalize_url((string) ($item['source_url'] ?? $item['link'] ?? ''), $baseUrl),
                 'images' => $normalizedImages,
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     * 将 Pexels Photo 资源转换为项目通用的图集条目。
+     */
+    private function parsePexels(string $body, array $source): array
+    {
+        $data = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('Pexels JSON 解析失败：' . json_last_error_msg());
+        }
+        $photos = $data['photos'] ?? [];
+        if (!is_array($photos)) {
+            throw new RuntimeException('Pexels 响应缺少 photos 数组。');
+        }
+        $imageSize = trim((string) ($source['image_size'] ?? 'large'));
+        $result = [];
+        foreach ($photos as $photo) {
+            if (!is_array($photo)) {
+                continue;
+            }
+            $photoId = trim((string) ($photo['id'] ?? ''));
+            $photoUrl = trim((string) ($photo['url'] ?? ''));
+            $alt = trim((string) ($photo['alt'] ?? ''));
+            $title = $alt !== '' ? $alt : ($photoId !== '' ? 'Pexels Photo ' . $photoId : 'Pexels Photo');
+            $photographer = trim((string) ($photo['photographer'] ?? ''));
+            $description = $photographer !== ''
+                ? 'Photo by ' . $photographer . ' on Pexels.'
+                : 'Photo provided by Pexels.';
+            $src = (array) ($photo['src'] ?? []);
+            $imageUrl = trim((string) ($src[$imageSize] ?? $src['large'] ?? $src['medium'] ?? $src['original'] ?? ''));
+            if ($imageUrl === '') {
+                continue;
+            }
+            $result[] = [
+                'title' => $title,
+                'description' => $description,
+                'category' => (string) ($source['category'] ?? $source['query'] ?? ''),
+                'source_url' => $photoUrl,
+                'images' => [[
+                    'url' => $imageUrl,
+                    'alt' => $alt !== '' ? $alt : $title,
+                ]],
             ];
         }
         return $result;

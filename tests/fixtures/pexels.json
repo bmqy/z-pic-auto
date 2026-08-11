@@ -1,0 +1,27 @@
+{
+  "total_results": 2,
+  "page": 1,
+  "per_page": 2,
+  "photos": [
+    {
+      "id": 12345,
+      "url": "https://www.pexels.com/photo/test-landscape-12345/",
+      "photographer": "Test Photographer",
+      "photographer_url": "https://www.pexels.com/@test-photographer",
+      "alt": "Green mountain landscape",
+      "src": {
+        "large": "https://images.pexels.com/photos/12345/large.jpeg",
+        "medium": "https://images.pexels.com/photos/12345/medium.jpeg"
+      }
+    },
+    {
+      "id": 67890,
+      "url": "https://www.pexels.com/photo/test-ocean-67890/",
+      "photographer": "",
+      "alt": "",
+      "src": {
+        "large": "https://images.pexels.com/photos/67890/large.jpeg"
+      }
+    }
+  ]
+}

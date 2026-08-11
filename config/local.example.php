@@ -28,6 +28,8 @@ return [
     'max_image_bytes' => 8 * 1024 * 1024,
     'request_timeout' => 20,
     'user_agent' => 'Z-Pic-Auto/1.0 (+https://github.com/bmqy/z-pic-auto)',
+    // Pexels API Key 建议通过 .env 中的 PEXELS_API_KEY 注入，不要提交到仓库。
+    'pexels_api_key' => '',
     'translation' => [
         // 使用 Google Translate 的公开 JSON 接口，不需要额外安装 PHP SDK。
         'endpoint' => 'https://translate.googleapis.com/translate_a/single',
@@ -93,6 +95,18 @@ return [
             'max_images' => 1,
             'request_timeout' => 20,
             'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA 署名。',
+        ],
+        [
+            'name' => 'Pexels 精选图片',
+            'type' => 'pexels',
+            'url' => 'https://api.pexels.com/v1/curated',
+            'enabled' => false,
+            'per_page' => 1,
+            'max_items' => 1,
+            'max_images' => 1,
+            'image_size' => 'large',
+            'request_timeout' => 20,
+            'license_note' => '按 Pexels API Guidelines 保留 Pexels 链接和摄影师署名。',
         ],
     ],
     'category_rules' => [
