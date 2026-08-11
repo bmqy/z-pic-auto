@@ -104,7 +104,7 @@ jobs:
           port: 21
           local-dir: ./
           server-dir: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
-          state-name: .github/ftp-deploy-sync-state.json
+          state-name: .ftp-deploy-sync-state.json
           log-level: minimal
           timeout: 60000
           exclude: |
@@ -112,6 +112,7 @@ jobs:
             **/.git*/**
             **/.github/**
             **/.codex/**
+            **/.ftp-deploy-sync-state.json
             **/.env
             **/config/local.php
             **/config/local.php72
@@ -139,7 +140,7 @@ jobs:
           port: 21
           local-dir: ./
           server-dir: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
-          state-name: .github/ftp-deploy-sync-state.json
+          state-name: .ftp-deploy-sync-state.json
           log-level: minimal
           timeout: 60000
           exclude: |
@@ -147,6 +148,7 @@ jobs:
             **/.git*/**
             **/.github/**
             **/.codex/**
+            **/.ftp-deploy-sync-state.json
             **/.env
             **/config/local.php
             **/config/local.php72
@@ -174,7 +176,7 @@ jobs:
           port: 21
           local-dir: ./
           server-dir: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
-          state-name: .github/ftp-deploy-sync-state.json
+          state-name: .ftp-deploy-sync-state.json
           log-level: minimal
           timeout: 60000
           exclude: |
@@ -182,6 +184,7 @@ jobs:
             **/.git*/**
             **/.github/**
             **/.codex/**
+            **/.ftp-deploy-sync-state.json
             **/.env
             **/config/local.php
             **/config/local.php72
