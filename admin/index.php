@@ -163,7 +163,7 @@ $adminPageUrl = function (string $targetTab, string $pageKey, int $page): string
             <section class="admin-panel admin-quick-panel">
                 <div class="admin-panel-heading"><div><p class="section-kicker">QUICK ACTIONS</p><h2>快速操作</h2></div><span class="page-indicator">无需离开当前页面</span></div>
                 <div class="admin-action-grid">
-                    <form method="post" class="admin-action-card"><input type="hidden" name="action" value="collect"><span class="admin-action-icon">↻</span><span><strong>运行全部采集</strong><small>按配置顺序执行全部启用来源</small></span><button class="button" type="submit">立即运行</button></form>
+                    <form method="post" class="admin-action-card js-collect-form"><input type="hidden" name="action" value="collect"><span class="admin-action-icon">↻</span><span><strong>运行全部采集</strong><small>按配置顺序执行全部启用来源</small></span><button class="button" type="submit" data-running-label="采集中…">立即运行</button></form>
                     <a class="admin-action-card" href="?tab=content"><span class="admin-action-icon">▦</span><span><strong>管理图集内容</strong><small>查看、删除图集或单张图片</small></span><span class="admin-action-arrow">→</span></a>
                     <a class="admin-action-card" href="?tab=runs"><span class="admin-action-icon">◷</span><span><strong>查看运行记录</strong><small>检查采集成功、失败与新增数量</small></span><span class="admin-action-arrow">→</span></a>
                 </div>
@@ -172,8 +172,8 @@ $adminPageUrl = function (string $targetTab, string $pageKey, int $page): string
         <?php elseif ($tab === 'content'): ?>
             <section class="admin-panel admin-collect-panel">
                 <div class="admin-panel-heading"><div><p class="section-kicker">COLLECT</p><h2>运行采集</h2></div><span class="page-indicator"><?= $enabledSources ?> 个来源已启用</span></div>
-                <form method="post" class="admin-collect-all"><input type="hidden" name="action" value="collect"><div><strong>运行全部采集</strong><small>依次执行所有已启用来源，适合日常更新。</small></div><button class="button" type="submit">立即运行全部</button></form>
-                <div class="admin-source-list"><?php foreach ((array) ($config['sources'] ?? []) as $index => $source): ?><?php if (!($source['enabled'] ?? false) || empty($source['url'])) { continue; } ?><form method="post" class="admin-source-row"><input type="hidden" name="action" value="collect"><input type="hidden" name="source_index" value="<?= (int) $index ?>"><span class="status-dot"></span><div><strong><?= h((string) ($source['name'] ?? ('来源 ' . $index))) ?></strong><small><?= h((string) ($source['type'] ?? 'source')) ?></small></div><button class="text-button" type="submit">运行 →</button></form><?php endforeach; ?></div>
+                <form method="post" class="admin-collect-all js-collect-form"><input type="hidden" name="action" value="collect"><div><strong>运行全部采集</strong><small>依次执行所有已启用来源，适合日常更新。</small></div><button class="button" type="submit" data-running-label="采集中…">立即运行全部</button></form>
+                <div class="admin-source-list"><?php foreach ((array) ($config['sources'] ?? []) as $index => $source): ?><?php if (!($source['enabled'] ?? false) || empty($source['url'])) { continue; } ?><form method="post" class="admin-source-row js-collect-form"><input type="hidden" name="action" value="collect"><input type="hidden" name="source_index" value="<?= (int) $index ?>"><span class="status-dot"></span><div><strong><?= h((string) ($source['name'] ?? ('来源 ' . $index))) ?></strong><small><?= h((string) ($source['type'] ?? 'source')) ?><span class="admin-source-status" data-collect-status>就绪</span></small></div><button class="text-button" type="submit" data-running-label="采集中…">运行 →</button></form><?php endforeach; ?></div>
             </section>
             <section class="admin-panel"><div class="admin-panel-heading"><div><p class="section-kicker">CONTENT LIBRARY</p><h2>图集与图片</h2></div><span class="page-indicator">共 <?= $contentTotal ?> 个图集</span></div><?php if (!$galleries): ?><p class="empty">暂时还没有图集。</p><?php else: ?><div class="admin-galleries"><?php foreach ($galleries as $gallery): ?><article class="admin-gallery"><div class="admin-gallery-heading"><div><p class="tag"><?= h((string) $gallery['category_name']) ?></p><h3><?= h((string) $gallery['title']) ?></h3><p class="admin-meta"><?= h((string) $gallery['created_at']) ?> · <?= (int) $gallery['image_count'] ?> 张图片</p></div><form method="post" class="js-confirm-form" data-confirm-title="删除图集" data-confirm-message="确定删除整个图集及其全部图片吗？"><input type="hidden" name="action" value="delete_gallery"><input type="hidden" name="gallery_id" value="<?= (int) $gallery['id'] ?>"><button class="button danger" type="submit">删除图集</button></form></div><?php if (!$gallery['images']): ?><p class="empty">该图集没有图片。</p><?php else: ?><div class="admin-images"><?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image"><a href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-footer"><span>#<?= $imageIndex + 1 ?></span><form method="post" class="js-confirm-form" data-confirm-title="删除图片" data-confirm-message="确定删除这张图片吗？"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div></div><?php endforeach; ?></div><?php endif; ?></article><?php endforeach; ?></div><?php endif; ?><?php if ($contentTotalPages > 1): ?><nav class="admin-pagination" aria-label="内容分页"><a class="admin-pagination-link<?= $contentPage <= 1 ? ' disabled' : '' ?>" href="<?= h($contentPage <= 1 ? '#' : $adminPageUrl('content', 'content_page', $contentPage - 1)) ?>">← 上一页</a><span>第 <?= $contentPage ?> / <?= $contentTotalPages ?> 页</span><a class="admin-pagination-link<?= $contentPage >= $contentTotalPages ? ' disabled' : '' ?>" href="<?= h($contentPage >= $contentTotalPages ? '#' : $adminPageUrl('content', 'content_page', $contentPage + 1)) ?>">下一页 →</a></nav><?php endif; ?></section>
         <?php else: ?>
@@ -260,6 +260,34 @@ $adminPageUrl = function (string $targetTab, string $pageKey, int $page): string
         if (event.key === 'Escape' && !modal.hidden) {
             closeModal();
         }
+    });
+}());
+
+(function () {
+    var collectForms = document.querySelectorAll('.js-collect-form');
+    if (!collectForms.length) {
+        return;
+    }
+
+    Array.prototype.forEach.call(collectForms, function (form) {
+        form.addEventListener('submit', function () {
+            if (form.getAttribute('aria-busy') === 'true') {
+                return;
+            }
+            form.setAttribute('aria-busy', 'true');
+            form.classList.add('is-running');
+
+            var button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+                button.textContent = button.getAttribute('data-running-label') || '运行中…';
+            }
+
+            var status = form.querySelector('[data-collect-status]');
+            if (status) {
+                status.textContent = '运行中…';
+            }
+        });
     });
 }());
 </script>
