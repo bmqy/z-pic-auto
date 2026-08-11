@@ -150,12 +150,27 @@ final class Repository
         return $gallery;
     }
 
-    public function adminGalleries(bool $includeImages = true): array
+    public function countAdminGalleries(): int
     {
-        $galleries = $this->db->query('SELECT g.*, c.name AS category_name, (SELECT COUNT(*) FROM images i WHERE i.gallery_id = g.id) AS image_count FROM galleries g JOIN categories c ON c.id = g.category_id ORDER BY g.created_at DESC, g.id DESC')->fetchAll();
+        return (int) $this->db->query('SELECT COUNT(*) FROM galleries')->fetchColumn();
+    }
+
+    public function adminGalleries(bool $includeImages = true, ?int $limit = null, int $offset = 0): array
+    {
+        $sql = 'SELECT g.*, c.name AS category_name, (SELECT COUNT(*) FROM images i WHERE i.gallery_id = g.id) AS image_count FROM galleries g JOIN categories c ON c.id = g.category_id ORDER BY g.created_at DESC, g.id DESC';
+        if ($limit !== null) {
+            $sql .= ' LIMIT ' . max(1, $limit) . ' OFFSET ' . max(0, $offset);
+        }
+        $galleries = $this->db->query($sql)->fetchAll();
         $imagesByGallery = [];
-        if ($includeImages) {
-            $images = $this->db->query('SELECT * FROM images ORDER BY gallery_id ASC, position ASC, id ASC')->fetchAll();
+        if ($includeImages && $galleries) {
+            $galleryIds = array_map(function (array $gallery): int {
+                return (int) $gallery['id'];
+            }, $galleries);
+            $placeholders = implode(',', array_fill(0, count($galleryIds), '?'));
+            $imageStmt = $this->db->prepare('SELECT * FROM images WHERE gallery_id IN (' . $placeholders . ') ORDER BY gallery_id ASC, position ASC, id ASC');
+            $imageStmt->execute($galleryIds);
+            $images = $imageStmt->fetchAll();
             foreach ($images as $image) {
                 $imagesByGallery[(int) $image['gallery_id']][] = $image;
             }
@@ -292,10 +307,16 @@ final class Repository
         $stmt->execute([$sourceName, $status, $added, $message, $started, $finished]);
     }
 
-    public function recentRuns(int $limit = 20): array
+    public function countRuns(): int
     {
-        $stmt = $this->db->prepare('SELECT * FROM collection_runs ORDER BY id DESC LIMIT ?');
-        $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+        return (int) $this->db->query('SELECT COUNT(*) FROM collection_runs')->fetchColumn();
+    }
+
+    public function recentRuns(int $limit = 20, int $offset = 0): array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM collection_runs ORDER BY id DESC LIMIT ? OFFSET ?');
+        $stmt->bindValue(1, max(1, $limit), PDO::PARAM_INT);
+        $stmt->bindValue(2, max(0, $offset), PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll();
     }
