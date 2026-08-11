@@ -68,11 +68,13 @@ jobs:
                   login_dir = ftp.pwd()
                   ftp.cwd(candidate)
                   target_dir = ftp.pwd()
-                  ftp.cwd("admin/")
-                  admin_dir = ftp.pwd()
                   print(f"FTP login directory: {login_dir}")
                   print(f"FTP target directory: {target_dir}")
-                  print(f"FTP admin directory: {admin_dir}")
+                  try:
+                      ftp.cwd("admin")
+                      print(f"FTP admin directory: {ftp.pwd()}")
+                  except Exception as error:
+                      print(f"FTP admin directory check failed under {target_dir}: {error}")
                   with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
                       output.write(f"server_dir={candidate}\n")
                   break
