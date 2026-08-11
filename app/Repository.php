@@ -150,13 +150,18 @@ final class Repository
         return $gallery;
     }
 
-    public function adminGalleries(): array
+    public function adminGalleries(bool $includeImages = true): array
     {
-        $galleries = $this->db->query('SELECT g.*, c.name AS category_name FROM galleries g JOIN categories c ON c.id = g.category_id ORDER BY g.created_at DESC, g.id DESC')->fetchAll();
-        $imageStmt = $this->db->prepare('SELECT * FROM images WHERE gallery_id = ? ORDER BY position ASC, id ASC');
+        $galleries = $this->db->query('SELECT g.*, c.name AS category_name, (SELECT COUNT(*) FROM images i WHERE i.gallery_id = g.id) AS image_count FROM galleries g JOIN categories c ON c.id = g.category_id ORDER BY g.created_at DESC, g.id DESC')->fetchAll();
+        $imagesByGallery = [];
+        if ($includeImages) {
+            $images = $this->db->query('SELECT * FROM images ORDER BY gallery_id ASC, position ASC, id ASC')->fetchAll();
+            foreach ($images as $image) {
+                $imagesByGallery[(int) $image['gallery_id']][] = $image;
+            }
+        }
         foreach ($galleries as &$gallery) {
-            $imageStmt->execute([(int) $gallery['id']]);
-            $gallery['images'] = $imageStmt->fetchAll();
+            $gallery['images'] = $imagesByGallery[(int) $gallery['id']] ?? [];
         }
         unset($gallery);
         return $galleries;
@@ -204,17 +209,13 @@ final class Repository
             $delete = $this->db->prepare('DELETE FROM images WHERE id = ?');
             $delete->execute([$imageId]);
 
-            $remainingStmt = $this->db->prepare('SELECT id, local_path, source_url FROM images WHERE gallery_id = ? ORDER BY position ASC, id ASC');
+            $remainingStmt = $this->db->prepare('SELECT local_path, source_url FROM images WHERE gallery_id = ? ORDER BY position ASC, id ASC LIMIT 1');
             $remainingStmt->execute([$galleryId]);
-            $remainingImages = $remainingStmt->fetchAll();
-            $updatePosition = $this->db->prepare('UPDATE images SET position = ? WHERE id = ?');
-            foreach ($remainingImages as $position => $remainingImage) {
-                $updatePosition->execute([$position, (int) $remainingImage['id']]);
-            }
+            $remainingImage = $remainingStmt->fetch();
 
             $coverPath = '';
-            if ($remainingImages) {
-                $coverPath = (string) ($remainingImages[0]['local_path'] !== '' ? $remainingImages[0]['local_path'] : $remainingImages[0]['source_url']);
+            if ($remainingImage) {
+                $coverPath = (string) ($remainingImage['local_path'] !== '' ? $remainingImage['local_path'] : $remainingImage['source_url']);
             }
             $updateGallery = $this->db->prepare('UPDATE galleries SET cover_path = ?, updated_at = ? WHERE id = ?');
             $updateGallery->execute([$coverPath, now_string(), $galleryId]);
@@ -234,14 +235,17 @@ final class Repository
         if (!$paths) {
             return;
         }
-        $countStmt = $this->db->prepare('SELECT COUNT(*) FROM images WHERE local_path = ?');
+        $usedPaths = [];
+        $usedPathStmt = $this->db->query("SELECT DISTINCT local_path FROM images WHERE local_path <> ''");
+        while (($usedPath = $usedPathStmt->fetchColumn()) !== false) {
+            $usedPaths[(string) $usedPath] = true;
+        }
         foreach ($paths as $localPath) {
             $absolutePath = $this->storedImageAbsolutePath((string) $localPath);
             if ($absolutePath === null) {
                 continue;
             }
-            $countStmt->execute([(string) $localPath]);
-            if ((int) $countStmt->fetchColumn() === 0 && is_file($absolutePath)) {
+            if (!isset($usedPaths[(string) $localPath]) && is_file($absolutePath)) {
                 @unlink($absolutePath);
             }
         }

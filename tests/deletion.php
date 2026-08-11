@@ -51,6 +51,9 @@ $secondGallery = $repository->createGallery([
 $adminGalleries = $repository->adminGalleries();
 assert_deletion_test(count($adminGalleries) === 2, '后台图集列表数量不正确。');
 assert_deletion_test(count($adminGalleries[0]['images']) === 1, '后台图片列表没有正确加载。');
+$adminSummaries = $repository->adminGalleries(false);
+assert_deletion_test((int) $adminSummaries[0]['image_count'] === 1, '后台轻量图集统计数量不正确。');
+assert_deletion_test($adminSummaries[0]['images'] === [], '后台轻量图集统计不应加载图片详情。');
 
 $imageId = (int) $database->query('SELECT id FROM images WHERE gallery_id = ' . $firstGallery . ' ORDER BY position ASC LIMIT 1')->fetchColumn();
 assert_deletion_test($repository->deleteImage($imageId), '删除图片失败。');
