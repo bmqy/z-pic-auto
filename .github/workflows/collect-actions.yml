@@ -52,6 +52,13 @@ jobs:
             fi
           done
 
+          case "${DB_HOST,,}" in
+            localhost|127.0.0.1|::1)
+              echo "DB_HOST 不能设置为 localhost、127.0.0.1 或 ::1；GitHub Actions 中这些地址指向 Runner 本机，请改为生产 MySQL 的远程主机名或 IP。" >&2
+              exit 1
+              ;;
+          esac
+
       - name: 执行 Actions 采集
         id: collect
         continue-on-error: true
@@ -70,8 +77,56 @@ jobs:
           php -d memory_limit=256M cron/collect.php
 
       - name: 上传 Actions 采集的图片
-        id: upload_images
-        if: ${{ always() }}
+        id: upload_images_attempt_1
+        if: ${{ steps.collect.outcome == 'success' }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./storage/images/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}/storage/images/
+          log-level: minimal
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+
+      - name: Wait before FTP retry
+        if: ${{ steps.upload_images_attempt_1.outcome == 'failure' }}
+        shell: bash
+        run: sleep 10
+
+      - name: Upload collected images (attempt 2)
+        id: upload_images_attempt_2
+        if: ${{ steps.collect.outcome == 'success' && steps.upload_images_attempt_1.outcome == 'failure' }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./storage/images/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}/storage/images/
+          log-level: minimal
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+
+      - name: Wait before FTP retry 3
+        if: ${{ steps.upload_images_attempt_2.outcome == 'failure' }}
+        shell: bash
+        run: sleep 20
+
+      - name: Upload collected images (attempt 3)
+        id: upload_images_attempt_3
+        if: ${{ steps.collect.outcome == 'success' && steps.upload_images_attempt_2.outcome == 'failure' }}
         continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
@@ -89,7 +144,7 @@ jobs:
             **/.git*/**
 
       - name: 汇总采集结果
-        if: ${{ steps.collect.outcome == 'failure' || steps.upload_images.outcome == 'failure' }}
+        if: ${{ steps.collect.outcome == 'failure' || steps.upload_images_attempt_3.outcome == 'failure' }}
         shell: bash
         run: |
           echo "Actions 采集或图片 FTP 上传失败。" >&2
