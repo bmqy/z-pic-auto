@@ -164,11 +164,93 @@ foreach ((array) ($config['sources'] ?? []) as $source) {
                 <form method="post" class="admin-collect-all"><input type="hidden" name="action" value="collect"><div><strong>运行全部采集</strong><small>依次执行所有已启用来源，适合日常更新。</small></div><button class="button" type="submit">立即运行全部</button></form>
                 <div class="admin-source-list"><?php foreach ((array) ($config['sources'] ?? []) as $index => $source): ?><?php if (!($source['enabled'] ?? false) || empty($source['url'])) { continue; } ?><form method="post" class="admin-source-row"><input type="hidden" name="action" value="collect"><input type="hidden" name="source_index" value="<?= (int) $index ?>"><span class="status-dot"></span><div><strong><?= h((string) ($source['name'] ?? ('来源 ' . $index))) ?></strong><small><?= h((string) ($source['type'] ?? 'source')) ?></small></div><button class="text-button" type="submit">运行 →</button></form><?php endforeach; ?></div>
             </section>
-            <section class="admin-panel"><div class="admin-panel-heading"><div><p class="section-kicker">CONTENT LIBRARY</p><h2>图集与图片</h2></div><span class="page-indicator">共 <?= count($galleries) ?> 个图集</span></div><?php if (!$galleries): ?><p class="empty">暂时还没有图集。</p><?php else: ?><div class="admin-galleries"><?php foreach ($galleries as $gallery): ?><article class="admin-gallery"><div class="admin-gallery-heading"><div><p class="tag"><?= h((string) $gallery['category_name']) ?></p><h3><?= h((string) $gallery['title']) ?></h3><p class="admin-meta"><?= h((string) $gallery['created_at']) ?> · <?= count((array) $gallery['images']) ?> 张图片</p></div><form method="post" onsubmit="return confirm('确定删除整个图集及其图片吗？');"><input type="hidden" name="action" value="delete_gallery"><input type="hidden" name="gallery_id" value="<?= (int) $gallery['id'] ?>"><button class="button danger" type="submit">删除图集</button></form></div><?php if (!$gallery['images']): ?><p class="empty">该图集没有图片。</p><?php else: ?><div class="admin-images"><?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image"><a href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-footer"><span>#<?= $imageIndex + 1 ?></span><form method="post" onsubmit="return confirm('确定删除这张图片吗？');"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div></div><?php endforeach; ?></div><?php endif; ?></article><?php endforeach; ?></div><?php endif; ?></section>
+            <section class="admin-panel"><div class="admin-panel-heading"><div><p class="section-kicker">CONTENT LIBRARY</p><h2>图集与图片</h2></div><span class="page-indicator">共 <?= count($galleries) ?> 个图集</span></div><?php if (!$galleries): ?><p class="empty">暂时还没有图集。</p><?php else: ?><div class="admin-galleries"><?php foreach ($galleries as $gallery): ?><article class="admin-gallery"><div class="admin-gallery-heading"><div><p class="tag"><?= h((string) $gallery['category_name']) ?></p><h3><?= h((string) $gallery['title']) ?></h3><p class="admin-meta"><?= h((string) $gallery['created_at']) ?> · <?= count((array) $gallery['images']) ?> 张图片</p></div><form method="post" class="js-confirm-form" data-confirm-title="删除图集" data-confirm-message="确定删除整个图集及其全部图片吗？"><input type="hidden" name="action" value="delete_gallery"><input type="hidden" name="gallery_id" value="<?= (int) $gallery['id'] ?>"><button class="button danger" type="submit">删除图集</button></form></div><?php if (!$gallery['images']): ?><p class="empty">该图集没有图片。</p><?php else: ?><div class="admin-images"><?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image"><a href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-footer"><span>#<?= $imageIndex + 1 ?></span><form method="post" class="js-confirm-form" data-confirm-title="删除图片" data-confirm-message="确定删除这张图片吗？"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div></div><?php endforeach; ?></div><?php endif; ?></article><?php endforeach; ?></div><?php endif; ?></section>
         <?php else: ?>
             <section class="admin-panel"><div class="admin-panel-heading"><div><p class="section-kicker">ACTIVITY LOG</p><h2>最近运行记录</h2></div><span class="page-indicator">共 <?= count($runs) ?> 条</span></div><?php if (!$runs): ?><p class="empty">还没有运行记录。</p><?php else: ?><div class="admin-table-wrap"><table><thead><tr><th>时间</th><th>来源</th><th>状态</th><th>新增</th><th>消息</th></tr></thead><tbody><?php foreach ($runs as $run): ?><tr><td><?= h((string) $run['started_at']) ?></td><td><?= h((string) $run['source_name']) ?></td><td><span class="run-badge <?= h((string) $run['status']) ?>"><?= h((string) $run['status']) ?></span></td><td><?= (int) $run['added_count'] ?></td><td><?= h((string) $run['message']) ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></section>
         <?php endif; ?>
     </main>
 </div>
+
+<div class="admin-modal" id="admin-confirm-modal" hidden aria-hidden="true">
+    <div class="admin-modal-backdrop" data-modal-close></div>
+    <section class="admin-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title" aria-describedby="admin-modal-message">
+        <div class="admin-modal-icon" aria-hidden="true">!</div>
+        <div class="admin-modal-copy">
+            <p class="section-kicker">请确认操作</p>
+            <h2 id="admin-modal-title">确认删除</h2>
+            <p id="admin-modal-message">删除后内容将无法恢复。</p>
+        </div>
+        <div class="admin-modal-actions">
+            <button class="admin-modal-cancel" type="button" data-modal-close>取消</button>
+            <button class="admin-modal-confirm" type="button" data-modal-confirm>确认删除</button>
+        </div>
+    </section>
+</div>
+<script>
+(function () {
+    var modal = document.getElementById('admin-confirm-modal');
+    if (!modal) {
+        return;
+    }
+    var title = document.getElementById('admin-modal-title');
+    var message = document.getElementById('admin-modal-message');
+    var confirmButton = modal.querySelector('[data-modal-confirm]');
+    var pendingForm = null;
+    var lastFocused = null;
+
+    function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        pendingForm = null;
+        window.setTimeout(function () {
+            modal.hidden = true;
+        }, 180);
+        if (lastFocused) {
+            lastFocused.focus();
+            lastFocused = null;
+        }
+    }
+
+    function openModal(form) {
+        pendingForm = form;
+        lastFocused = document.activeElement;
+        title.textContent = form.getAttribute('data-confirm-title') || '确认操作';
+        message.textContent = form.getAttribute('data-confirm-message') || '确定继续吗？';
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        window.requestAnimationFrame(function () {
+            modal.classList.add('is-open');
+        });
+        confirmButton.focus();
+    }
+
+    document.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!form.matches || !form.matches('.js-confirm-form')) {
+            return;
+        }
+        event.preventDefault();
+        openModal(form);
+    });
+
+    modal.addEventListener('click', function (event) {
+        if (event.target.hasAttribute('data-modal-close')) {
+            closeModal();
+        }
+    });
+
+    confirmButton.addEventListener('click', function () {
+        if (pendingForm) {
+            pendingForm.submit();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeModal();
+        }
+    });
+}());
+</script>
 </body>
 </html>
