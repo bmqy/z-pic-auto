@@ -37,6 +37,6 @@ $styleFile = __DIR__ . '/../assets/style.css';
 <main class="container">
 <?php require $viewFile; ?>
 </main>
-<footer class="site-footer"><div class="container"><span>© <?= date('Y') ?> <?= h((string) cfg('site_name')) ?></span><span><a href="<?= h(query_url(['route' => 'feed.xml'])) ?>">订阅 RSS</a><a class="site-admin-link" href="<?= h(site_url('admin/')) ?>">后台管理</a></span></div></footer>
+<footer class="site-footer"><div class="container"><span>© <?= date('Y') ?> <?= h((string) cfg('site_name')) ?></span><span><a href="<?= h(query_url(['route' => 'feed.xml'])) ?>">订阅 RSS</a></span></div></footer>
 </body>
 </html>
