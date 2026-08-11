@@ -52,6 +52,8 @@ jobs:
           esac
 
       - name: Actions 抓取并翻译
+        env:
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail

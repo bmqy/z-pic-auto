@@ -72,6 +72,14 @@ if (isset($env['PEXELS_API_KEY']) && trim((string) $env['PEXELS_API_KEY']) !== '
     $config['pexels_api_key'] = trim((string) $env['PEXELS_API_KEY']);
 }
 
+if (trim((string) ($config['pexels_api_key'] ?? '')) !== '') {
+    foreach ((array) ($config['sources'] ?? []) as $sourceIndex => $source) {
+        if (strtolower((string) ($source['type'] ?? '')) === 'pexels') {
+            $config['sources'][$sourceIndex]['enabled'] = true;
+        }
+    }
+}
+
 date_default_timezone_set((string) $config['timezone']);
 
 return $config;

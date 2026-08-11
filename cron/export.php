@@ -8,6 +8,15 @@ if (PHP_SAPI !== 'cli') {
 
 $config = require __DIR__ . '/../config/local.example.php';
 $config['download_images'] = false;
+$pexelsApiKey = getenv('PEXELS_API_KEY');
+if ($pexelsApiKey !== false && trim((string) $pexelsApiKey) !== '') {
+    $config['pexels_api_key'] = trim((string) $pexelsApiKey);
+    foreach ((array) ($config['sources'] ?? []) as $sourceIndex => $source) {
+        if (strtolower((string) ($source['type'] ?? '')) === 'pexels') {
+            $config['sources'][$sourceIndex]['enabled'] = true;
+        }
+    }
+}
 require_once __DIR__ . '/../app/functions.php';
 require_once __DIR__ . '/../app/Repository.php';
 require_once __DIR__ . '/../app/Translator.php';
