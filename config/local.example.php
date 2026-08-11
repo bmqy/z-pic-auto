@@ -60,12 +60,18 @@ return [
         ],
         [
             'name' => 'NASA 图片日',
-            'type' => 'rss',
-            'url' => 'https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss',
+            'type' => 'html',
+            'url' => 'https://www.nasa.gov/image-of-the-day/',
             'enabled' => true,
             'max_items' => 1,
             'max_images' => 1,
             'request_timeout' => 20,
+            'selectors' => [
+                'gallery' => '//main//div[contains(concat(" ", normalize-space(@class), " "), " hds-gallery-item-single ")]',
+                'title' => './/*[contains(concat(" ", normalize-space(@class), " "), " hds-gallery-item-caption ")]',
+                'description' => './/*[contains(concat(" ", normalize-space(@class), " "), " hds-gallery-item-caption ")]',
+                'image' => './/img',
+            ],
             'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA 署名。',
         ],
         [

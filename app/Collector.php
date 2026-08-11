@@ -6,6 +6,7 @@ final class Collector
     private $repository;
     private $config;
     private $translator;
+    private $exportWarnings = [];
 
     public function __construct(?Repository $repository, array $config, ?TranslatorInterface $translator = null)
     {
@@ -20,23 +21,38 @@ final class Collector
     public function exportTranslatedItems(): array
     {
         $exported = [];
+        $this->exportWarnings = [];
         foreach ((array) $this->config['sources'] as $source) {
             if (!($source['enabled'] ?? false) || empty($source['url'])) {
                 continue;
             }
-            $sourceName = $this->translator->translate(trim((string) ($source['name'] ?? $source['url'])));
-            foreach ($this->fetchItems($source) as $item) {
-                $normalized = $this->normalizeItem($item, $source);
-                if ($normalized === null) {
-                    continue;
+            try {
+                $sourceName = $this->translator->translate(trim((string) ($source['name'] ?? $source['url'])));
+                foreach ($this->fetchItems($source) as $item) {
+                    try {
+                        $normalized = $this->normalizeItem($item, $source);
+                    } catch (Throwable $error) {
+                        $this->exportWarnings[] = '来源 [' . trim((string) ($source['name'] ?? $source['url'])) . '] 单项跳过：' . $error->getMessage();
+                        continue;
+                    }
+                    if ($normalized === null) {
+                        continue;
+                    }
+                    $exported[] = [
+                        'source_name' => $sourceName,
+                        'item' => $normalized,
+                    ];
                 }
-                $exported[] = [
-                    'source_name' => $sourceName,
-                    'item' => $normalized,
-                ];
+            } catch (Throwable $error) {
+                $this->exportWarnings[] = '来源 [' . trim((string) ($source['name'] ?? $source['url'])) . '] 跳过：' . $error->getMessage();
             }
         }
         return $exported;
+    }
+
+    public function getExportWarnings(): array
+    {
+        return $this->exportWarnings;
     }
 
     /**

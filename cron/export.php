@@ -15,8 +15,16 @@ require_once __DIR__ . '/../app/Collector.php';
 
 try {
     $collector = new Collector(null, $config);
+    $items = $collector->exportTranslatedItems();
+    foreach ($collector->getExportWarnings() as $warning) {
+        fwrite(STDERR, $warning . PHP_EOL);
+    }
+    if ($items === []) {
+        throw new RuntimeException('所有启用来源均未产生可导入内容。');
+    }
     echo json_encode([
-        'items' => $collector->exportTranslatedItems(),
+        'items' => $items,
+        'warnings' => $collector->getExportWarnings(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     echo PHP_EOL;
 } catch (Throwable $error) {
