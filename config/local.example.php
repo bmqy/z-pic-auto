@@ -31,6 +31,7 @@ return [
     'translation' => [
         // 使用 Google Translate 的公开 JSON 接口，不需要额外安装 PHP SDK。
         'endpoint' => 'https://translate.googleapis.com/translate_a/single',
+        'fallback_endpoint' => 'https://api.mymemory.translated.net/get',
         'target' => 'zh-CN',
         'timeout' => 20,
     ],

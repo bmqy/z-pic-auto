@@ -46,9 +46,15 @@ final class Collector
     {
         $sourceLabel = trim((string) ($source['name'] ?? $source['url']));
         $name = '采集来源（翻译失败）';
+        $translationWarning = false;
         $started = now_string();
         try {
-            $name = $this->translator->translate($sourceLabel);
+            try {
+                $name = $this->translator->translate($sourceLabel);
+            } catch (TranslationException $error) {
+                $name = '采集来源';
+                $translationWarning = true;
+            }
             if ($name === '') {
                 $name = '未命名来源';
             }
@@ -77,8 +83,15 @@ final class Collector
                 unset($item);
             }
             $added = 0;
+            $skippedForTranslation = 0;
             foreach ($items as $item) {
-                $normalized = $this->normalizeItem($item, $source);
+                try {
+                    $normalized = $this->normalizeItem($item, $source);
+                } catch (TranslationException $error) {
+                    $skippedForTranslation++;
+                    $translationWarning = true;
+                    continue;
+                }
                 if ($normalized === null || $this->repository->galleryExistsByIdentity($normalized['fingerprint'], $normalized['identity_source_url'])) {
                     continue;
                 }
@@ -91,6 +104,12 @@ final class Collector
             }
             $finished = now_string();
             $message = '读取 ' . count($items) . ' 项，新增 ' . $added . ' 个图集。';
+            if ($skippedForTranslation > 0) {
+                $message .= ' 跳过 ' . $skippedForTranslation . ' 项未完成中文翻译。';
+            }
+            if ($translationWarning) {
+                $message .= ' 翻译服务暂时不可用，未翻译原文不会入库。';
+            }
             $this->repository->recordRun($name, 'success', $added, $message, $started, $finished);
             return ['source' => $name, 'status' => 'success', 'added' => $added, 'message' => $message];
         } catch (Throwable $error) {
