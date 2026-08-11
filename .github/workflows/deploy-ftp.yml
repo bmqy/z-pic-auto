@@ -1,0 +1,66 @@
+name: FTP 发布站点
+
+"on":
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: z-pic-auto-ftp-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 上传到 FTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 获取代码
+        uses: actions/checkout@v6
+
+      - name: 检查 FTP 配置
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in FTP_HOST FTP_USERNAME FTP_PASSWORD FTP_SERVER_DIR; do
+            if [[ -z "${!variable}" ]]; then
+              echo "缺少 GitHub Secret: ${variable}" >&2
+              exit 1
+            fi
+          done
+
+      - name: 同步站点文件
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          state-name: .github/ftp-deploy-sync-state.json
+          log-level: minimal
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/.codex/**
+            **/.env
+            **/config/local.php
+            **/config/local.php72
+            **/storage/**
+            **/storage-php72/**
+            **/tests/**
+            **/docker-compose*.yml
+            **/Dockerfile*

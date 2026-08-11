@@ -23,6 +23,8 @@
 
 ## 定时任务
 
+采集入库前会使用 Google Translate 的公开 JSON 接口，把标题、描述、分类、图片 alt 和来源名称翻译为简体中文。纯中文内容会直接旁路；翻译服务请求失败时本次来源会失败，不会把未翻译的外文内容写入数据库。默认配置位于 `config/local.example.php` 的 `translation` 节点，可在 `config/local.php` 中覆盖接口地址、目标语言和超时时间。
+
 优先使用主机面板的 Cron：
 
 ```text
@@ -47,6 +49,19 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 - `COLLECT_TOKEN`：与生产 `config/local.php` 中 `admin_token` 一致的令牌。
 
 如果修改了定时时间，请按 UTC 填写 cron 表达式。工作流会在返回 HTTP 错误或任一来源返回 `[failed]` 时标记为失败。
+
+## GitHub Actions FTP 发布
+
+项目提供 `.github/workflows/deploy-ftp.yml`：推送到 `main` 分支或手动运行工作流时，会将站点文件同步到 FTP。工作流会保留服务器上的 `storage/` 和生产配置，不会上传 `.env`、本地数据库、测试文件或 Docker 配置。
+
+请在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中配置以下 Secrets：
+
+- `FTP_HOST`：FTP 主机名或 IP。
+- `FTP_USERNAME`：FTP 用户名。
+- `FTP_PASSWORD`：FTP 密码。
+- `FTP_SERVER_DIR`：站点远程目录，例如 `/Web/`。
+
+工作流当前使用普通 FTP 21 端口；如果主机要求 FTPS，需要同步修改工作流中的 `protocol` 和 `port`。
 
 ## Docker 本地调试
 

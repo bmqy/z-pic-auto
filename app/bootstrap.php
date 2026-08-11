@@ -5,8 +5,10 @@ $config = require __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Repository.php';
+require_once __DIR__ . '/Translator.php';
 require_once __DIR__ . '/Collector.php';
 require_once __DIR__ . '/Template.php';
+require_once __DIR__ . '/Feed.php';
 
 $databaseConfig = (array) ($config['database'] ?? []);
 $databaseDriver = strtolower((string) ($databaseConfig['driver'] ?? 'sqlite'));

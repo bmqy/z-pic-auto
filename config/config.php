@@ -19,7 +19,7 @@ if (is_file($envFile)) {
         $env[trim($key)] = $value;
     }
 }
-if (is_file($localFile)) {
+if (is_file($localFile) && filesize($localFile) > 0) {
     $local = require $localFile;
 } elseif (!empty($env['mysql_username']) && isset($env['mysql_password'])) {
     $siteHost = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== '' ? $_SERVER['HTTP_HOST'] : 'localhost';

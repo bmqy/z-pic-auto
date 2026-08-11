@@ -5,11 +5,13 @@ final class Collector
 {
     private $repository;
     private $config;
+    private $translator;
 
-    public function __construct(Repository $repository, array $config)
+    public function __construct(Repository $repository, array $config, ?TranslatorInterface $translator = null)
     {
         $this->repository = $repository;
         $this->config = $config;
+        $this->translator = $translator ?: new Translator($config);
     }
 
     public function runAll(?int $onlyIndex = null): array
@@ -42,9 +44,14 @@ final class Collector
 
     public function runSource(array $source): array
     {
-        $name = (string) ($source['name'] ?? $source['url']);
+        $sourceLabel = trim((string) ($source['name'] ?? $source['url']));
+        $name = '采集来源（翻译失败）';
         $started = now_string();
         try {
+            $name = $this->translator->translate($sourceLabel);
+            if ($name === '') {
+                $name = '未命名来源';
+            }
             $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
             [$body, $status, $contentType, $error] = request_url((string) $source['url'], max(5, $timeout));
             if ($body === '' || ($status >= 400 && $status !== 0)) {
@@ -158,6 +165,11 @@ final class Collector
                     $images[] = ['url' => normalize_url($mediaUrl, $baseUrl), 'alt' => (string) ($item->title ?? '')];
                 }
             }
+            // 标准 RSS 图片通常放在 enclosure 节点中，例如 NASA Image of the Day。
+            $enclosureUrl = trim((string) ($item->enclosure['url'] ?? ''));
+            if ($enclosureUrl !== '') {
+                $images[] = ['url' => normalize_url($enclosureUrl, $baseUrl), 'alt' => (string) ($item->title ?? '')];
+            }
             $imageHtml = $encoded !== '' ? $encoded : $description;
             if ($imageHtml !== '') {
                 $dom = new DOMDocument();
@@ -222,18 +234,26 @@ final class Collector
 
     private function normalizeItem(array $item, array $source): ?array
     {
-        $title = trim((string) ($item['title'] ?? ''));
+        $originalTitle = trim((string) ($item['title'] ?? ''));
         $images = array_values(array_filter((array) ($item['images'] ?? []), function ($image) {
             return !empty($image['url']);
         }));
-        if ($title === '' || $images === []) {
+        if ($originalTitle === '' || $images === []) {
             return null;
         }
-        $description = trim(strip_tags((string) ($item['description'] ?? '')));
-        $category = trim((string) ($item['category'] ?? ''));
+        $originalDescription = trim(strip_tags((string) ($item['description'] ?? '')));
+        $originalCategory = trim((string) ($item['category'] ?? ''));
+        $category = $originalCategory;
         if ($category === '') {
-            $category = $this->classify($title . ' ' . $description);
+            $category = $this->classify($originalTitle . ' ' . $originalDescription);
         }
+        $title = $this->translator->translate($originalTitle);
+        $description = $this->translator->translate($originalDescription);
+        $category = $this->translator->translate($category !== '' ? $category : '未分类');
+        $images = array_map(function (array $image) {
+            $image['alt'] = $this->translator->translate((string) ($image['alt'] ?? ''));
+            return $image;
+        }, $images);
         $urls = array_map(function (array $image) {
             return (string) $image['url'];
         }, $images);
@@ -249,7 +269,7 @@ final class Collector
             'source_url' => $sourceUrl,
             'identity_source_url' => $identitySourceUrl,
             'images' => $images,
-            'fingerprint' => sha1($identitySourceUrl . '|' . $title . '|' . implode('|', $urls)),
+            'fingerprint' => sha1($identitySourceUrl . '|' . $originalTitle . '|' . implode('|', $urls)),
         ];
     }
 

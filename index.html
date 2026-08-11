@@ -2,11 +2,225 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
-    <meta http-equiv="refresh" content="0;url=index.php">
-    <title>Z-Pic Auto 图集站</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="1;url=index.php">
+    <title>正在进入 Z-Pic Auto</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --ink: #f5f1e9;
+            --muted: #a8ada8;
+            --line: rgba(245, 241, 233, .15);
+            --orange: #ff785d;
+            --yellow: #ffc978;
+            --night: #171c1b;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { min-height: 100%; }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background: var(--night);
+            color: var(--ink);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        }
+
+        body::before {
+            position: fixed;
+            inset: 0;
+            background:
+                linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+            background-size: 42px 42px;
+            content: "";
+            mask-image: linear-gradient(to bottom, black, transparent 80%);
+            pointer-events: none;
+        }
+
+        body::after {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 50% 45%, transparent 0, rgba(23,28,27,.2) 46%, rgba(8,11,11,.8) 100%);
+            content: "";
+            pointer-events: none;
+        }
+
+        .loading-page {
+            position: relative;
+            display: grid;
+            place-items: center;
+            min-height: 100vh;
+            padding: 32px;
+            isolation: isolate;
+        }
+
+        .orb {
+            position: absolute;
+            width: 46vw;
+            max-width: 620px;
+            aspect-ratio: 1;
+            border: 1px solid rgba(255, 120, 93, .2);
+            border-radius: 50%;
+            box-shadow: 0 0 100px rgba(255, 120, 93, .12), inset 0 0 100px rgba(255, 201, 120, .06);
+            animation: breathe 4s ease-in-out infinite;
+        }
+
+        .orb::before, .orb::after {
+            position: absolute;
+            inset: 11%;
+            border: 1px solid var(--line);
+            border-radius: inherit;
+            content: "";
+        }
+
+        .orb::after {
+            inset: 24%;
+            border-color: rgba(255, 201, 120, .22);
+        }
+
+        .content {
+            position: relative;
+            width: min(100%, 560px);
+            text-align: center;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--ink);
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .22em;
+            text-transform: uppercase;
+        }
+
+        .brand-mark {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            border: 1px solid rgba(255, 201, 120, .65);
+            border-radius: 50%;
+            color: var(--yellow);
+            font-size: .95rem;
+            letter-spacing: 0;
+            box-shadow: 0 0 24px rgba(255, 201, 120, .12);
+        }
+
+        h1 {
+            margin: 30px 0 12px;
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: 650;
+            letter-spacing: -.08em;
+            line-height: .98;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            font-size: .82rem;
+            letter-spacing: .08em;
+        }
+
+        .progress {
+            width: min(100%, 290px);
+            height: 2px;
+            margin: 44px auto 15px;
+            overflow: hidden;
+            background: rgba(245, 241, 233, .16);
+        }
+
+        .progress span {
+            display: block;
+            width: 42%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--orange), var(--yellow));
+            box-shadow: 0 0 18px var(--orange);
+            animation: loading 1s cubic-bezier(.4, 0, .2, 1) infinite;
+        }
+
+        .status {
+            color: var(--muted);
+            font-size: .68rem;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+
+        .status::before {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            margin: 0 9px 1px 0;
+            border-radius: 50%;
+            background: var(--orange);
+            box-shadow: 0 0 0 5px rgba(255, 120, 93, .1);
+            content: "";
+        }
+
+        .corner {
+            position: absolute;
+            color: rgba(245, 241, 233, .38);
+            font-size: .62rem;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+        }
+
+        .corner-top { top: 32px; left: 32px; }
+        .corner-bottom { right: 32px; bottom: 32px; }
+
+        .fallback {
+            display: inline-block;
+            margin-top: 26px;
+            color: rgba(245, 241, 233, .58);
+            font-size: .72rem;
+            text-decoration: underline;
+            text-underline-offset: 4px;
+        }
+
+        @keyframes loading {
+            from { transform: translateX(-115%); }
+            to { transform: translateX(250%); }
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(.96); opacity: .7; }
+            50% { transform: scale(1.02); opacity: 1; }
+        }
+
+        @media (max-width: 520px) {
+            .loading-page { padding: 22px; }
+            .orb { width: 92vw; }
+            .corner-top { top: 22px; left: 22px; }
+            .corner-bottom { right: 22px; bottom: 22px; }
+            h1 { margin-top: 24px; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .orb, .progress span { animation: none; }
+        }
+    </style>
 </head>
 <body>
-    <p>正在进入 Z-Pic Auto…</p>
-    <script>window.location.replace('index.php');</script>
+    <main class="loading-page" aria-labelledby="loading-title">
+        <div class="orb" aria-hidden="true"></div>
+        <span class="corner corner-top">VISUAL ARCHIVE / 01</span>
+        <span class="corner corner-bottom">EST. 2024 — ONLINE</span>
+        <section class="content">
+            <div class="brand"><span class="brand-mark">Z</span><span>Z-Pic Auto</span></div>
+            <h1 id="loading-title">正在进入</h1>
+            <p class="subtitle">把时间，收进一张张图里</p>
+            <div class="progress" role="progressbar" aria-label="正在加载 Z-Pic Auto"><span></span></div>
+            <div class="status">Preparing your visual archive</div>
+            <a class="fallback" href="index.php">如果页面没有自动进入，请点击这里</a>
+        </section>
+    </main>
+    <script>
+        window.setTimeout(function () { window.location.replace('index.php'); }, 900);
+    </script>
 </body>
 </html>

@@ -109,13 +109,7 @@ try {
     }
     if ($route === 'feed.xml') {
         header('Content-Type: application/rss+xml; charset=UTF-8');
-        $items = $repository->recentGalleries(20);
-        echo '<?xml version="1.0" encoding="UTF-8"?>';
-        echo '<rss version="2.0"><channel><title>' . h((string) cfg('site_name')) . '</title><link>' . h(site_url()) . '</link><description>' . h((string) cfg('site_description')) . '</description>';
-        foreach ($items as $item) {
-            echo '<item><title>' . h($item['title']) . '</title><link>' . h(query_url(['route' => 'gallery', 'slug' => $item['slug']])) . '</link><description>' . h($item['description']) . '</description></item>';
-        }
-        echo '</channel></rss>';
+        echo Feed::render($repository->recentGalleries(20));
         exit;
     }
     if ($route === 'task/collect') {

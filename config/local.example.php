@@ -28,17 +28,23 @@ return [
     'max_image_bytes' => 8 * 1024 * 1024,
     'request_timeout' => 20,
     'user_agent' => 'Z-Pic-Auto/1.0 (+http://example.com)',
+    'translation' => [
+        // 使用 Google Translate 的公开 JSON 接口，不需要额外安装 PHP SDK。
+        'endpoint' => 'https://translate.googleapis.com/translate_a/single',
+        'target' => 'zh-CN',
+        'timeout' => 20,
+    ],
     'per_page' => 18,
     'sources' => [
         [
             'name' => 'Wikimedia Commons 图片日',
             'type' => 'rss',
             'url' => 'https://commons.wikimedia.org/w/api.php?action=featuredfeed&feed=potd&feedformat=rss&language=en',
-            // 当前虚拟主机访问该站点持续超时，先停用避免拖慢每日任务；网络恢复后可改回 true。
+            // 当前虚拟主机访问该站点超时，先停用避免拖慢每日任务；网络恢复后可改回 true。
             'enabled' => false,
             'max_items' => 1,
             'max_images' => 1,
-            'request_timeout' => 8,
+            'request_timeout' => 20,
             'license_note' => '逐张保留 Wikimedia Commons 文件页与授权信息。',
         ],
         [
@@ -50,6 +56,36 @@ return [
             'max_images' => 1,
             'request_timeout' => 20,
             'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA/JPL 等署名。',
+        ],
+        [
+            'name' => 'NASA 图片日',
+            'type' => 'rss',
+            'url' => 'https://www.nasa.gov/rss/dyn/lg_image_of_the_day.rss',
+            'enabled' => true,
+            'max_items' => 1,
+            'max_images' => 1,
+            'request_timeout' => 20,
+            'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA 署名。',
+        ],
+        [
+            'name' => 'NASA 突发新闻',
+            'type' => 'rss',
+            'url' => 'https://www.nasa.gov/rss/dyn/breaking_news.rss',
+            'enabled' => true,
+            'max_items' => 1,
+            'max_images' => 1,
+            'request_timeout' => 20,
+            'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA 署名。',
+        ],
+        [
+            'name' => 'NASA 教育新闻',
+            'type' => 'rss',
+            'url' => 'https://www.nasa.gov/rss/dyn/educationnews.rss',
+            'enabled' => true,
+            'max_items' => 1,
+            'max_images' => 1,
+            'request_timeout' => 20,
+            'license_note' => '按 NASA Media Usage Guidelines 使用，并保留 NASA 署名。',
         ],
     ],
     'category_rules' => [
