@@ -21,13 +21,13 @@ jobs:
       - name: 触发站点采集任务
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
-          COLLECT_TOKEN: ${{ secrets.COLLECT_TOKEN }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if [[ -z "${SITE_URL}" || -z "${COLLECT_TOKEN}" ]]; then
-            echo "请先配置 SITE_URL 和 COLLECT_TOKEN 两个仓库 Secrets。" >&2
+          if [[ -z "${SITE_URL}" || -z "${ADMIN_TOKEN}" ]]; then
+            echo "请先配置 SITE_URL 和 ADMIN_TOKEN 两个仓库 Secrets。" >&2
             exit 1
           fi
 
@@ -44,7 +44,7 @@ jobs:
             --show-error \
             --get \
             --data-urlencode "route=task/collect" \
-            --data-urlencode "token=${COLLECT_TOKEN}" \
+            --data-urlencode "token=${ADMIN_TOKEN}" \
             "${SITE_URL%/}/index.php" | tee "${response_file}"
 
           if grep -q '^\[failed\]' "${response_file}"; then

@@ -21,36 +21,32 @@ if (is_file($envFile)) {
 }
 if (is_file($localFile) && filesize($localFile) > 0) {
     $local = require $localFile;
-} elseif (!empty($env['mysql_username']) && isset($env['mysql_password'])) {
+} elseif (!empty($env['DB_USERNAME']) && isset($env['DB_PASSWORD'])) {
     $siteHost = isset($_SERVER['HTTP_HOST']) && $_SERVER['HTTP_HOST'] !== '' ? $_SERVER['HTTP_HOST'] : 'localhost';
-    $configuredSiteUrl = trim((string) ($env['site_url'] ?? ''));
-    if ($configuredSiteUrl === '' && !empty($env['domain'])) {
-        // 三丰云可能把 HTTP_HOST 传成 FTP 主机名，站点 URL 必须以 .env 的业务域名为准。
-        $configuredSiteUrl = 'https://' . trim((string) $env['domain'], '/');
-    }
+    $configuredSiteUrl = trim((string) ($env['SITE_URL'] ?? ''));
     if ($configuredSiteUrl === '') {
         $configuredSiteUrl = 'http://' . $siteHost;
     }
-    $databaseName = $env['mysql_database'] ?? ($env['mysql_db'] ?? ($env['mysql_name'] ?? $env['mysql_username']));
-    $adminToken = $env['admin_token'] ?? sha1($env['mysql_username'] . '|' . $env['mysql_password']);
+    $databaseName = $env['DB_NAME'] ?? $env['DB_USERNAME'];
+    $adminToken = $env['ADMIN_TOKEN'] ?? sha1($env['DB_USERNAME'] . '|' . $env['DB_PASSWORD']);
     $local = [
         'site_url' => rtrim($configuredSiteUrl, '/'),
         'admin_token' => $adminToken,
         'database' => [
             'driver' => 'mysql',
-            'host' => $env['mysql_host'] ?? 'localhost',
-            'port' => isset($env['mysql_port']) ? (int) $env['mysql_port'] : 3306,
+            'host' => $env['DB_HOST'] ?? 'localhost',
+            'port' => isset($env['DB_PORT']) ? (int) $env['DB_PORT'] : 3306,
             'name' => $databaseName,
-            'user' => $env['mysql_username'],
-            'password' => $env['mysql_password'],
+            'user' => $env['DB_USERNAME'],
+            'password' => $env['DB_PASSWORD'],
             // 兼容老式虚拟主机上的 MySQL 5.x，避免 utf8mb4 不受支持。
-            'charset' => $env['mysql_charset'] ?? 'utf8',
+            'charset' => $env['DB_CHARSET'] ?? 'utf8',
         ],
-        // 老式虚拟主机可能没有 CA 证书，由 .env 的 verify_ssl=0 显式切换兼容模式。
-        'verify_ssl' => !isset($env['verify_ssl']) || !in_array(strtolower($env['verify_ssl']), ['0', 'false', 'no'], true),
+        // 老式虚拟主机可能没有 CA 证书，由 .env 的 VERIFY_SSL=0 显式切换兼容模式。
+        'verify_ssl' => !isset($env['VERIFY_SSL']) || !in_array(strtolower($env['VERIFY_SSL']), ['0', 'false', 'no'], true),
     ];
 } else {
-    throw new RuntimeException('未找到 config/local.php，也未在根目录 .env 找到 mysql_username/mysql_password。');
+    throw new RuntimeException('未找到 config/local.php，也未在根目录 .env 找到 DB_USERNAME/DB_PASSWORD。');
 }
 $config = array_replace_recursive($defaults, is_array($local) ? $local : []);
 

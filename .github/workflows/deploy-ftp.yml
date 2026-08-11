@@ -92,6 +92,122 @@ jobs:
               raise SystemExit(1)
           PY
 
+      - name: Check production configuration
+        id: production_config
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from ftplib import FTP
+
+          ftp = FTP()
+          needs_init = True
+          try:
+              ftp.connect(os.environ["FTP_HOST"], 21, timeout=30)
+              ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
+              ftp.cwd(os.environ["FTP_SERVER_DIR"])
+              try:
+                  ftp.cwd("config")
+              except Exception:
+                  needs_init = True
+              else:
+                  try:
+                      needs_init = not bool(ftp.size("local.php"))
+                  except Exception:
+                      needs_init = True
+          finally:
+              try:
+                  ftp.quit()
+              except Exception:
+                  pass
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"needs_init={'true' if needs_init else 'false'}\n")
+          print(f"production_config_needs_init={needs_init}")
+          PY
+
+      - name: Initialize production configuration when missing
+        if: ${{ steps.production_config.outputs.needs_init == 'true' }}
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_SERVER_DIR: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          VERIFY_SSL: ${{ secrets.VERIFY_SSL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in SITE_URL ADMIN_TOKEN DB_HOST DB_NAME DB_PASSWORD DB_PORT DB_USERNAME; do
+            if [[ -z "${!variable}" ]]; then
+              echo "缺少 GitHub Secret: ${variable}" >&2
+              exit 1
+            fi
+          done
+
+          python - <<'PY'
+          import json
+          import os
+          import textwrap
+          from ftplib import FTP
+          from io import BytesIO
+
+          def php_string(value):
+              return json.dumps(value, ensure_ascii=True)
+
+          def php_bool(value):
+              return "false" if value.strip().lower() in {"0", "false", "no"} else "true"
+
+          content = f"""<?php
+          declare(strict_types=1);
+
+          return [
+              'site_url' => {php_string(os.environ['SITE_URL'].rstrip('/'))},
+              'admin_token' => {php_string(os.environ['ADMIN_TOKEN'])},
+              'database' => [
+                  'driver' => 'mysql',
+                  'host' => {php_string(os.environ['DB_HOST'])},
+                  'port' => {int(os.environ['DB_PORT'])},
+                  'name' => {php_string(os.environ['DB_NAME'])},
+                  'user' => {php_string(os.environ['DB_USERNAME'])},
+                  'password' => {php_string(os.environ['DB_PASSWORD'])},
+                  'charset' => 'utf8',
+              ],
+              'verify_ssl' => {php_bool(os.environ.get('VERIFY_SSL', '1'))},
+          ];
+          """
+          content = textwrap.dedent(content)
+
+          ftp = FTP()
+          try:
+              ftp.connect(os.environ["FTP_HOST"], 21, timeout=30)
+              ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
+              ftp.cwd(os.environ["FTP_SERVER_DIR"])
+              try:
+                  ftp.cwd("config")
+              except Exception:
+                  ftp.mkd("config")
+                  ftp.cwd("config")
+              ftp.storbinary("STOR local.php", BytesIO(content.encode("utf-8")))
+          finally:
+              try:
+                  ftp.quit()
+              except Exception:
+                  pass
+          print("production_config_initialized=true")
+          PY
+
       - name: Sync site files (attempt 1)
         id: ftp_deploy_attempt_1
         continue-on-error: true

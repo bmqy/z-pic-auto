@@ -46,7 +46,7 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 请在仓库 Settings → Secrets and variables → Actions 中配置：
 
 - `SITE_URL`：站点根地址，例如 `https://example.com`。
-- `COLLECT_TOKEN`：与生产 `config/local.php` 中 `admin_token` 一致的令牌。
+- `ADMIN_TOKEN`：与生产 `config/local.php` 中的 `admin_token` 一致的令牌；站点环境变量和 Actions Secret 使用同一名称。
 
 如果修改了定时时间，请按 UTC 填写 cron 表达式。工作流会在返回 HTTP 错误或任一来源返回 `[failed]` 时标记为失败。
 
@@ -60,6 +60,12 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 - `FTP_USERNAME`：FTP 用户名。
 - `FTP_PASSWORD`：FTP 密码。
 - `FTP_SERVER_DIR`：站点远程目录，例如 `/Web/`。
+
+当远端缺少或存在空的 `config/local.php` 时，部署工作流会自动使用以下 Secrets 初始化生产配置：
+
+- `SITE_URL`、`ADMIN_TOKEN`
+- `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD`
+- `VERIFY_SSL`：可选，默认为 `1`；仅用于站点服务器请求外部 HTTPS 时的证书校验。
 
 工作流当前使用普通 FTP 21 端口；如果主机要求 FTPS，需要同步修改工作流中的 `protocol` 和 `port`。
 
