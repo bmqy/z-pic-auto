@@ -112,6 +112,23 @@ try {
         echo Feed::render($repository->recentGalleries(20));
         exit;
     }
+    if ($route === 'task/import') {
+        $token = (string) ($_GET['token'] ?? ($_SERVER['HTTP_X_ADMIN_TOKEN'] ?? ''));
+        if ($token === '' || !hash_equals((string) cfg('admin_token'), $token)) {
+            http_response_code(403);
+            echo 'Forbidden';
+            exit;
+        }
+        $payload = json_decode((string) file_get_contents('php://input'), true);
+        if (!is_array($payload) || !isset($payload['items']) || !is_array($payload['items'])) {
+            http_response_code(400);
+            echo 'Invalid import payload';
+            exit;
+        }
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode((new Collector($repository, $config))->importTranslatedItems($payload['items']), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
     if ($route === 'task/collect') {
         $token = (string) ($_GET['token'] ?? '');
         if ($token === '' || !hash_equals((string) cfg('admin_token'), $token)) {

@@ -41,7 +41,7 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 
 ## GitHub Actions 定时采集
 
-项目已提供 `.github/workflows/collect.yml`，默认每天北京时间 10:00 调用站点采集接口，也可在 GitHub Actions 页面手动运行。工作流调用的是现有 `index.php?route=task/collect` 路由，数据库与图片仍由生产站点持久保存。
+项目提供两个 Actions 采集工作流：`.github/workflows/collect-actions.yml` 默认每天北京时间 10:00 在 GitHub Runner 抓取并翻译内容，再通过 `index.php?route=task/import` 将 JSON 提交给生产站点；PHP 站点在本机连接 MySQL、下载图片并入库。`.github/workflows/collect.yml` 保留为直接调用站点 `index.php?route=task/collect` 的备用方式。
 
 请在仓库 Settings → Secrets and variables → Actions 中配置：
 
@@ -49,6 +49,8 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 - `ADMIN_TOKEN`：与生产 `config/local.php` 中的 `admin_token` 一致的令牌；站点环境变量和 Actions Secret 使用同一名称。
 
 如果修改了定时时间，请按 UTC 填写 cron 表达式。工作流会在返回 HTTP 错误或任一来源返回 `[failed]` 时标记为失败。
+
+`collect-actions.yml` 使用仓库中的 `config/local.example.php` 读取公开采集源配置；翻译服务由 Actions 端调用，生产服务器不需要能够访问翻译服务。导入接口使用 `X-Admin-Token` 请求头认证，生产服务器仍只负责本机数据库写入。
 
 ## GitHub Actions FTP 发布
 

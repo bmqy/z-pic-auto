@@ -7,11 +7,85 @@ final class Collector
     private $config;
     private $translator;
 
-    public function __construct(Repository $repository, array $config, ?TranslatorInterface $translator = null)
+    public function __construct(?Repository $repository, array $config, ?TranslatorInterface $translator = null)
     {
         $this->repository = $repository;
         $this->config = $config;
         $this->translator = $translator ?: new Translator($config);
+    }
+
+    /**
+     * 在无数据库环境中抓取并翻译内容，供 Actions 导出后提交给线上站点入库。
+     */
+    public function exportTranslatedItems(): array
+    {
+        $exported = [];
+        foreach ((array) $this->config['sources'] as $source) {
+            if (!($source['enabled'] ?? false) || empty($source['url'])) {
+                continue;
+            }
+            $sourceName = $this->translator->translate(trim((string) ($source['name'] ?? $source['url'])));
+            foreach ($this->fetchItems($source) as $item) {
+                $normalized = $this->normalizeItem($item, $source);
+                if ($normalized === null) {
+                    continue;
+                }
+                $exported[] = [
+                    'source_name' => $sourceName,
+                    'item' => $normalized,
+                ];
+            }
+        }
+        return $exported;
+    }
+
+    /**
+     * 接收 Actions 已翻译内容，在站点服务器本机下载图片并写入数据库。
+     */
+    public function importTranslatedItems(array $entries): array
+    {
+        $added = 0;
+        $skipped = 0;
+        $failed = 0;
+        foreach ($entries as $entry) {
+            try {
+                $item = (array) ($entry['item'] ?? []);
+                $images = array_values(array_filter((array) ($item['images'] ?? []), function ($image) {
+                    return is_array($image) && !empty($image['url']);
+                }));
+                $item['title'] = trim((string) ($item['title'] ?? ''));
+                $item['description'] = trim((string) ($item['description'] ?? ''));
+                $item['category'] = trim((string) ($item['category'] ?? '未分类')) ?: '未分类';
+                $item['source_url'] = trim((string) ($item['source_url'] ?? ''));
+                $item['identity_source_url'] = trim((string) ($item['identity_source_url'] ?? ''));
+                $item['fingerprint'] = trim((string) ($item['fingerprint'] ?? ''));
+                if ($item['title'] === '' || $item['fingerprint'] === '' || $images === []) {
+                    $failed++;
+                    continue;
+                }
+                if ($this->repository->galleryExistsByIdentity($item['fingerprint'], $item['identity_source_url'])) {
+                    $skipped++;
+                    continue;
+                }
+                $preparedImages = $this->prepareImages($images);
+                if ($preparedImages === []) {
+                    $skipped++;
+                    continue;
+                }
+                $item['images'] = $images;
+                $this->repository->createGallery($item, $preparedImages, trim((string) ($entry['source_name'] ?? '采集来源')) ?: '采集来源');
+                $added++;
+            } catch (Throwable $error) {
+                $failed++;
+            }
+        }
+        return [
+            'status' => $failed > 0 ? 'failed' : 'success',
+            'added' => $added,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'message' => 'Actions 已翻译内容导入完成。',
+        ];
     }
 
     public function runAll(?int $onlyIndex = null): array
@@ -58,30 +132,7 @@ final class Collector
             if ($name === '') {
                 $name = '未命名来源';
             }
-            $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
-            [$body, $status, $contentType, $error] = request_url((string) $source['url'], max(5, $timeout));
-            if ($body === '' || ($status >= 400 && $status !== 0)) {
-                throw new RuntimeException('来源请求失败，HTTP ' . $status . ' ' . $error);
-            }
-            $type = strtolower((string) ($source['type'] ?? 'json'));
-            if ($type === 'json') {
-                $items = $this->parseJson($body, (string) $source['url']);
-            } elseif ($type === 'rss' || $type === 'xml') {
-                $items = $this->parseRss($body, (string) $source['url']);
-            } elseif ($type === 'html') {
-                $items = $this->parseHtml($body, (string) $source['url'], (array) ($source['selectors'] ?? []));
-            } else {
-                throw new InvalidArgumentException('不支持的来源类型：' . $source['type']);
-            }
-            if (isset($source['max_items']) && (int) $source['max_items'] > 0) {
-                $items = array_slice($items, 0, (int) $source['max_items']);
-            }
-            if (isset($source['max_images']) && (int) $source['max_images'] > 0) {
-                foreach ($items as &$item) {
-                    $item['images'] = array_slice((array) ($item['images'] ?? []), 0, (int) $source['max_images']);
-                }
-                unset($item);
-            }
+            $items = $this->fetchItems($source);
             $added = 0;
             $skippedForTranslation = 0;
             foreach ($items as $item) {
@@ -117,6 +168,35 @@ final class Collector
             $this->repository->recordRun($name, 'failed', 0, $error->getMessage(), $started, $finished);
             return ['source' => $name, 'status' => 'failed', 'added' => 0, 'message' => $error->getMessage()];
         }
+    }
+
+    private function fetchItems(array $source): array
+    {
+        $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
+        [$body, $status, , $error] = request_url((string) $source['url'], max(5, $timeout));
+        if ($body === '' || ($status >= 400 && $status !== 0)) {
+            throw new RuntimeException('来源请求失败，HTTP ' . $status . ' ' . $error);
+        }
+        $type = strtolower((string) ($source['type'] ?? 'json'));
+        if ($type === 'json') {
+            $items = $this->parseJson($body, (string) $source['url']);
+        } elseif ($type === 'rss' || $type === 'xml') {
+            $items = $this->parseRss($body, (string) $source['url']);
+        } elseif ($type === 'html') {
+            $items = $this->parseHtml($body, (string) $source['url'], (array) ($source['selectors'] ?? []));
+        } else {
+            throw new InvalidArgumentException('不支持的来源类型：' . $source['type']);
+        }
+        if (isset($source['max_items']) && (int) $source['max_items'] > 0) {
+            $items = array_slice($items, 0, (int) $source['max_items']);
+        }
+        if (isset($source['max_images']) && (int) $source['max_images'] > 0) {
+            foreach ($items as &$item) {
+                $item['images'] = array_slice((array) ($item['images'] ?? []), 0, (int) $source['max_images']);
+            }
+            unset($item);
+        }
+        return $items;
     }
 
     private function parseJson(string $body, string $baseUrl): array

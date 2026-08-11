@@ -1,4 +1,4 @@
-name: Actions 远程采集
+name: Actions 抓取翻译并入库
 
 on:
   schedule:
@@ -15,18 +15,27 @@ concurrency:
 
 jobs:
   collect:
-    name: 调用线上 PHP 采集接口
+    name: Actions 抓取翻译并调用 PHP 入库
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: 检查站点配置
+      - name: 获取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP 运行环境
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl, dom, mbstring, simplexml
+          coverage: none
+
+      - name: 检查远程调用配置
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-
           for variable in SITE_URL ADMIN_TOKEN; do
             if [[ -z "${!variable}" ]]; then
               echo "缺少 GitHub Secret: ${variable}" >&2
@@ -42,16 +51,25 @@ jobs:
               ;;
           esac
 
-      - name: 调用线上 PHP 采集接口
+      - name: Actions 抓取并翻译
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -d memory_limit=256M cron/export.php > payload.json
+          if [[ ! -s payload.json ]]; then
+            echo "Actions 未生成导入数据。" >&2
+            exit 1
+          fi
+
+      - name: 调用线上 PHP 导入接口
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
-
           response_file="$(mktemp)"
-          trap 'rm -f "${response_file}"' EXIT
+          trap 'rm -f "${response_file}" payload.json' EXIT
 
           curl \
             --fail-with-body \
@@ -63,19 +81,14 @@ jobs:
             --silent \
             --show-error \
             --http1.1 \
-            --get \
-            --data-urlencode "route=task/collect" \
-            --data-urlencode "async=1" \
-            --data-urlencode "token=${ADMIN_TOKEN}" \
-            "${SITE_URL%/}/index.php" | tee "${response_file}"
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "X-Admin-Token: ${ADMIN_TOKEN}" \
+            --data-binary @payload.json \
+            "${SITE_URL%/}/index.php?route=task%2Fimport" | tee "${response_file}"
 
-          if grep -q '^\[failed\]' "${response_file}"; then
-            echo "线上 PHP 采集接口返回了失败结果。" >&2
-            exit 1
-          fi
-
-          if ! grep -q '^\[accepted\]' "${response_file}"; then
-            echo "线上 PHP 采集接口未返回异步受理结果。" >&2
+          if ! grep -q '"status":"success"' "${response_file}"; then
+            echo "线上 PHP 导入接口未返回成功结果。" >&2
             cat "${response_file}" >&2
             exit 1
           fi
