@@ -38,7 +38,9 @@ jobs:
             fi
           done
 
-      - name: 同步站点文件
+      - name: Sync site files (attempt 1)
+        id: ftp_deploy_attempt_1
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -64,3 +66,78 @@ jobs:
             **/tests/**
             **/docker-compose*.yml
             **/Dockerfile*
+
+      - name: Wait before FTP retry 2
+        if: ${{ steps.ftp_deploy_attempt_1.outcome == 'failure' }}
+        shell: bash
+        run: sleep 10
+
+      - name: Sync site files (attempt 2)
+        id: ftp_deploy_attempt_2
+        if: ${{ steps.ftp_deploy_attempt_1.outcome == 'failure' }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          state-name: .github/ftp-deploy-sync-state.json
+          log-level: minimal
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/.codex/**
+            **/.env
+            **/config/local.php
+            **/config/local.php72
+            **/storage/**
+            **/storage-php72/**
+            **/tests/**
+            **/docker-compose*.yml
+            **/Dockerfile*
+
+      - name: Wait before FTP retry 3
+        if: ${{ steps.ftp_deploy_attempt_2.outcome == 'failure' }}
+        shell: bash
+        run: sleep 20
+
+      - name: Sync site files (attempt 3)
+        id: ftp_deploy_attempt_3
+        if: ${{ steps.ftp_deploy_attempt_2.outcome == 'failure' }}
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          state-name: .github/ftp-deploy-sync-state.json
+          log-level: minimal
+          timeout: 60000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/.codex/**
+            **/.env
+            **/config/local.php
+            **/config/local.php72
+            **/storage/**
+            **/storage-php72/**
+            **/tests/**
+            **/docker-compose*.yml
+            **/Dockerfile*
+
+      - name: Fail if all FTP attempts failed
+        if: ${{ steps.ftp_deploy_attempt_3.outcome == 'failure' }}
+        shell: bash
+        run: exit 1
