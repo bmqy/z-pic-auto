@@ -1,4 +1,4 @@
-name: Actions 采集并上传图片
+name: Actions 直连采集并上传 FTP
 
 on:
   schedule:
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   collect:
-    name: Actions 采集
+    name: Actions 直连采集
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
