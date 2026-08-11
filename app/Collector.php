@@ -173,9 +173,23 @@ final class Collector
     private function fetchItems(array $source): array
     {
         $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
-        [$body, $status, , $error] = request_url((string) $source['url'], max(5, $timeout));
+        $body = '';
+        $status = 0;
+        $error = '';
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            [$body, $status, , $error] = request_url((string) $source['url'], max(5, $timeout));
+            if ($body !== '' && ($status === 0 || $status < 400)) {
+                break;
+            }
+            $retryable = $status === 0 || $status === 429 || $status >= 500;
+            if (!$retryable || $attempt === 2) {
+                break;
+            }
+            sleep(5 * ($attempt + 1));
+        }
         if ($body === '' || ($status >= 400 && $status !== 0)) {
-            throw new RuntimeException('来源请求失败，HTTP ' . $status . ' ' . $error);
+            $sourceName = trim((string) ($source['name'] ?? $source['url']));
+            throw new RuntimeException('来源请求失败 [' . $sourceName . '] ' . (string) $source['url'] . '，HTTP ' . $status . ' ' . $error);
         }
         $type = strtolower((string) ($source['type'] ?? 'json'));
         if ($type === 'json') {

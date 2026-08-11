@@ -27,7 +27,7 @@ return [
     'download_images' => true,
     'max_image_bytes' => 8 * 1024 * 1024,
     'request_timeout' => 20,
-    'user_agent' => 'Z-Pic-Auto/1.0 (+http://example.com)',
+    'user_agent' => 'Z-Pic-Auto/1.0 (+https://github.com/bmqy/z-pic-auto)',
     'translation' => [
         // 使用 Google Translate 的公开 JSON 接口，不需要额外安装 PHP SDK。
         'endpoint' => 'https://translate.googleapis.com/translate_a/single',
