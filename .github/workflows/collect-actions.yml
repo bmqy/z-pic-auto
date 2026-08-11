@@ -62,12 +62,20 @@ jobs:
             --max-time 300 \
             --silent \
             --show-error \
+            --http1.1 \
             --get \
             --data-urlencode "route=task/collect" \
+            --data-urlencode "async=1" \
             --data-urlencode "token=${ADMIN_TOKEN}" \
             "${SITE_URL%/}/index.php" | tee "${response_file}"
 
           if grep -q '^\[failed\]' "${response_file}"; then
             echo "线上 PHP 采集接口返回了失败结果。" >&2
+            exit 1
+          fi
+
+          if ! grep -q '^\[accepted\]' "${response_file}"; then
+            echo "线上 PHP 采集接口未返回异步受理结果。" >&2
+            cat "${response_file}" >&2
             exit 1
           fi

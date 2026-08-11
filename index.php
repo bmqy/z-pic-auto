@@ -120,6 +120,21 @@ try {
             exit;
         }
         header('Content-Type: text/plain; charset=UTF-8');
+        if ((string) ($_GET['async'] ?? '') === '1') {
+            // 先结束 HTTP 响应，再让 PHP 进程继续在站点服务器本机执行采集。
+            http_response_code(202);
+            echo "[accepted] collection started\n";
+            ignore_user_abort(true);
+            set_time_limit(0);
+            if (function_exists('fastcgi_finish_request')) {
+                fastcgi_finish_request();
+            } else {
+                while (ob_get_level() > 0) {
+                    ob_end_flush();
+                }
+                flush();
+            }
+        }
         $results = (new Collector($repository, $config))->runAll();
         foreach ($results as $result) {
             echo '[' . $result['status'] . '] ' . $result['source'] . ': ' . $result['message'] . "\n";
