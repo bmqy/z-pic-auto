@@ -37,6 +37,11 @@ if ((string) ($_POST['action'] ?? '') === 'logout') {
     $isAuthenticated = false;
 }
 
+// 后台采集和数据库操作可能耗时较长，认证判断完成后立即释放 session 锁，避免并发请求一直等待。
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+
 $adminStyleFile = __DIR__ . '/../assets/style.css';
 if (!$isAuthenticated) {
     ?><!doctype html>
