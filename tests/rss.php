@@ -27,6 +27,6 @@ assert_rss_test((string) $feed->channel->title === 'Z-Pic Auto 图集站', 'RSS 
 assert_rss_test(count($feed->channel->item) === 1, 'RSS 图集条目数量不正确。');
 assert_rss_test((string) $feed->channel->item->guid !== '', 'RSS 条目缺少 guid。');
 assert_rss_test((string) $feed->channel->item->pubDate !== '', 'RSS 条目缺少发布时间。');
-assert_rss_test(strpos($xml, '<?xml-stylesheet') !== false, 'RSS 缺少浏览器展示样式。');
+assert_rss_test(strpos($xml, '<?xml-stylesheet type="text/xsl" href="http://example.com/assets/rss.xsl"?>') !== false, 'RSS 缺少绝对路径的浏览器展示样式。');
 
 echo "rss tests passed\n";
