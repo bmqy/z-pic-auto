@@ -132,7 +132,7 @@ if (!in_array($tab, ['dashboard', 'content', 'runs'], true)) {
     $tab = 'dashboard';
 }
 $contentPageSize = 12;
-$runsPageSize = 20;
+$runsPageSize = 10;
 $contentTotal = $repository->countAdminGalleries();
 $runsTotal = $repository->countRuns();
 $contentTotalPages = max(1, (int) ceil($contentTotal / $contentPageSize));
