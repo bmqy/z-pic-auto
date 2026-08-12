@@ -53,15 +53,36 @@ if (!$isAuthenticated) {
             <p class="section-kicker">ADMIN ACCESS</p>
             <h1>进入管理后台</h1>
             <p class="admin-login-lead">请输入访问凭证以继续。</p>
-            <?php if ($loginError !== ''): ?><div class="notice failed"><?= h($loginError) ?></div><?php endif; ?>
-            <form method="post" class="admin-login-form">
+            <?php if ($loginError !== ''): ?><div class="notice failed" role="alert"><?= h($loginError) ?></div><?php endif; ?>
+            <form id="admin-login-form" method="post" action="<?= h(site_url('admin/index.php')) ?>" class="admin-login-form">
                 <input type="hidden" name="action" value="login">
                 <label for="admin-credential">访问凭证</label>
                 <input id="admin-credential" name="token" type="password" autocomplete="current-password" placeholder="请输入访问凭证" required autofocus>
-                <button class="button admin-login-button" type="submit">登录后台 <span aria-hidden="true">→</span></button>
+                <button id="admin-login-button" class="button admin-login-button" type="submit"><span data-login-label>登录后台</span> <span aria-hidden="true">→</span></button>
+                <p class="admin-login-status" id="admin-login-status" role="status" aria-live="polite"></p>
             </form>
             <a class="admin-back-link" href="<?= h(site_url()) ?>">← 返回网站首页</a>
         </main>
+        <script>
+        (function () {
+            var form = document.getElementById('admin-login-form');
+            var button = document.getElementById('admin-login-button');
+            var status = document.getElementById('admin-login-status');
+            var label = button ? button.querySelector('[data-login-label]') : null;
+            if (!form || !button || !status || !label) {
+                return;
+            }
+            form.addEventListener('submit', function () {
+                if (form.getAttribute('aria-busy') === 'true') {
+                    return;
+                }
+                form.setAttribute('aria-busy', 'true');
+                button.disabled = true;
+                label.textContent = '正在验证';
+                status.textContent = '正在验证，请稍候…';
+            });
+        }());
+        </script>
     </body>
     </html><?php
     exit;
