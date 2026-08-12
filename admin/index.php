@@ -54,7 +54,7 @@ if (!$isAuthenticated) {
             <h1>进入管理后台</h1>
             <p class="admin-login-lead">请输入访问凭证以继续。</p>
             <?php if ($loginError !== ''): ?><div class="notice failed" role="alert"><?= h($loginError) ?></div><?php endif; ?>
-            <form id="admin-login-form" method="post" action="<?= h(site_url('admin/index.php')) ?>" class="admin-login-form">
+            <form id="admin-login-form" method="post" action="" class="admin-login-form">
                 <input type="hidden" name="action" value="login">
                 <label for="admin-credential">访问凭证</label>
                 <input id="admin-credential" name="token" type="password" autocomplete="current-password" placeholder="请输入访问凭证" required autofocus>
@@ -72,14 +72,19 @@ if (!$isAuthenticated) {
             if (!form || !button || !status || !label) {
                 return;
             }
-            form.addEventListener('submit', function () {
+            form.addEventListener('submit', function (event) {
                 if (form.getAttribute('aria-busy') === 'true') {
+                    event.preventDefault();
                     return;
                 }
+                event.preventDefault();
                 form.setAttribute('aria-busy', 'true');
                 button.disabled = true;
                 label.textContent = '正在验证';
                 status.textContent = '正在验证，请稍候…';
+                window.setTimeout(function () {
+                    HTMLFormElement.prototype.submit.call(form);
+                }, 0);
             });
         }());
         </script>
