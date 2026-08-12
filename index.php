@@ -108,8 +108,22 @@ try {
         exit;
     }
     if ($route === 'feed.xml') {
-        header('Content-Type: application/rss+xml; charset=UTF-8');
-        echo Feed::render($repository->recentGalleries(20));
+        header('Vary: Accept');
+        header('Cache-Control: no-cache, must-revalidate');
+        $items = $repository->recentGalleries(20);
+        if (Feed::prefersHtml((string) ($_SERVER['HTTP_ACCEPT'] ?? ''))) {
+            header('Content-Type: text/html; charset=UTF-8');
+            echo Feed::renderHtml($items);
+        } else {
+            header('Content-Type: application/rss+xml; charset=UTF-8');
+            echo Feed::render($items);
+        }
+        exit;
+    }
+    if ($route === 'feed.html') {
+        header('Content-Type: text/html; charset=UTF-8');
+        header('Cache-Control: no-cache, must-revalidate');
+        echo Feed::renderHtml($repository->recentGalleries(20));
         exit;
     }
     if ($route === 'task/import') {
