@@ -151,3 +151,27 @@ docker compose -f docker-compose.prod.yml up --build -d
 ```
 
 按关键词搜索时，将 `url` 改为 `https://api.pexels.com/v1/search`，并增加 `'query' => 'nature'`。采集结果会保留 Pexels 照片页来源链接，并将摄影师署名写入图集描述。请遵守 [Pexels API Guidelines](https://www.pexels.com/api/documentation/) 的回链、署名和请求频率要求。
+
+## Bangumi API 来源
+
+项目支持通过 Bangumi v0 API 抓取动画条目的公开信息和封面。默认模板中该来源为关闭状态，确认展示许可后，在 `config/local.php` 中启用：
+
+```php
+[
+    'name' => 'Bangumi 动画条目',
+    'type' => 'bangumi',
+    'url' => 'https://api.bgm.tv/v0/subjects',
+    'enabled' => true,
+    'params' => [
+        'type' => 2,
+        'sort' => 'rank',
+        'limit' => 1,
+        'offset' => 0,
+    ],
+    'category' => '二次元',
+    'max_items' => 1,
+    'max_images' => 1,
+],
+```
+
+`type=2` 表示动画，采集结果会优先使用中文标题，并归入“二次元”分类；请按 [Bangumi API 文档](https://bangumi.github.io/api/) 的 User-Agent、请求频率和内容使用要求配置与使用。

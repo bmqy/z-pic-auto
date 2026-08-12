@@ -1,0 +1,18 @@
+{
+  "total": 1,
+  "limit": 1,
+  "offset": 0,
+  "data": [
+    {
+      "id": 12345,
+      "type": 2,
+      "name": "Test Anime",
+      "name_cn": "测试动画",
+      "summary": "这是一个用于解析测试的动画条目。",
+      "images": {
+        "large": "https://lain.bgm.tv/pic/cover/l/ab/cd/12345_test.jpg",
+        "medium": "https://lain.bgm.tv/pic/cover/m/ab/cd/12345_test.jpg"
+      }
+    }
+  ]
+}

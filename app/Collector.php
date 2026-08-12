@@ -269,6 +269,8 @@ final class Collector
             $items = $this->parseJson($body, $requestUrl);
         } elseif ($type === 'pexels') {
             $items = $this->parsePexels($body, $source);
+        } elseif ($type === 'bangumi') {
+            $items = $this->parseBangumi($body, $source);
         } elseif ($type === 'rss' || $type === 'xml') {
             $items = $this->parseRss($body, $requestUrl);
         } elseif ($type === 'html') {
@@ -294,11 +296,14 @@ final class Collector
     private function buildSourceRequestUrl(array $source, string $type): string
     {
         $url = trim((string) ($source['url'] ?? ''));
-        if ($type !== 'pexels') {
+        if ($type !== 'pexels' && $type !== 'bangumi') {
             return $url;
         }
         $params = (array) ($source['params'] ?? []);
-        foreach (['query', 'orientation', 'size', 'color', 'locale', 'page', 'per_page'] as $key) {
+        $keys = $type === 'pexels'
+            ? ['query', 'orientation', 'size', 'color', 'locale', 'page', 'per_page']
+            : ['type', 'cat', 'platform', 'sort', 'year', 'month', 'limit', 'offset'];
+        foreach ($keys as $key) {
             if (array_key_exists($key, $source) && $source[$key] !== '' && $source[$key] !== null) {
                 $params[$key] = $source[$key];
             }
@@ -307,6 +312,60 @@ final class Collector
             return $url;
         }
         return $url . (strpos($url, '?') === false ? '?' : '&') . http_build_query($params);
+    }
+
+    /**
+     * 将 Bangumi 条目列表转换为项目通用的图集条目。
+     */
+    private function parseBangumi(string $body, array $source): array
+    {
+        $data = json_decode($body, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('Bangumi JSON 解析失败：' . json_last_error_msg());
+        }
+        $subjects = $data['data'] ?? [];
+        if (!is_array($subjects)) {
+            throw new RuntimeException('Bangumi 响应缺少 data 数组。');
+        }
+
+        $category = trim((string) ($source['category'] ?? '二次元')) ?: '二次元';
+        $result = [];
+        foreach ($subjects as $subject) {
+            if (!is_array($subject)) {
+                continue;
+            }
+            $subjectId = (int) ($subject['id'] ?? 0);
+            $title = trim((string) ($subject['name_cn'] ?? ''));
+            if ($title === '') {
+                $title = trim((string) ($subject['name'] ?? ''));
+            }
+            $images = (array) ($subject['images'] ?? []);
+            $imageUrl = '';
+            foreach (['large', 'medium', 'common', 'grid', 'small'] as $imageSize) {
+                $candidate = trim((string) ($images[$imageSize] ?? ''));
+                if ($candidate !== '') {
+                    $imageUrl = $candidate;
+                    break;
+                }
+            }
+            if ($title === '' || $imageUrl === '') {
+                continue;
+            }
+            $sourceUrl = $subjectId > 0
+                ? 'https://bgm.tv/subject/' . $subjectId
+                : '';
+            $result[] = [
+                'title' => $title,
+                'description' => trim((string) ($subject['summary'] ?? '')),
+                'category' => $category,
+                'source_url' => $sourceUrl,
+                'images' => [[
+                    'url' => $imageUrl,
+                    'alt' => $title,
+                ]],
+            ];
+        }
+        return $result;
     }
 
     private function parseJson(string $body, string $baseUrl): array

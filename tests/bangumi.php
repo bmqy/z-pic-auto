@@ -1,0 +1,53 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../app/functions.php';
+require_once __DIR__ . '/../app/Repository.php';
+require_once __DIR__ . '/../app/Translator.php';
+require_once __DIR__ . '/../app/Collector.php';
+
+function assert_bangumi_test(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+$config = require __DIR__ . '/../config/local.example.php';
+$config['database'] = ['driver' => 'sqlite'];
+$config['download_images'] = false;
+$GLOBALS['config'] = $config;
+$database = new PDO('sqlite::memory:');
+$database->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$repository = new Repository($database, $config);
+$repository->ensureSchema();
+$collector = new Collector($repository, $config);
+
+$buildUrl = new ReflectionMethod(Collector::class, 'buildSourceRequestUrl');
+$buildUrl->setAccessible(true);
+$requestUrl = $buildUrl->invoke($collector, [
+    'type' => 'bangumi',
+    'url' => 'https://api.bgm.tv/v0/subjects',
+    'params' => ['type' => 2, 'sort' => 'rank'],
+    'limit' => 1,
+    'offset' => 10,
+], 'bangumi');
+$query = [];
+parse_str((string) parse_url($requestUrl, PHP_URL_QUERY), $query);
+assert_bangumi_test((int) $query['type'] === 2, 'Bangumi type 参数未构造。');
+assert_bangumi_test($query['sort'] === 'rank', 'Bangumi sort 参数未构造。');
+assert_bangumi_test((int) $query['limit'] === 1, 'Bangumi limit 参数未构造。');
+assert_bangumi_test((int) $query['offset'] === 10, 'Bangumi offset 参数未构造。');
+
+$parse = new ReflectionMethod(Collector::class, 'parseBangumi');
+$parse->setAccessible(true);
+$items = $parse->invoke($collector, file_get_contents(__DIR__ . '/fixtures/bangumi.json'), [
+    'category' => '二次元',
+]);
+assert_bangumi_test(count($items) === 1, 'Bangumi data 未完整转换。');
+assert_bangumi_test($items[0]['title'] === '测试动画', 'Bangumi 未优先使用中文标题。');
+assert_bangumi_test($items[0]['category'] === '二次元', 'Bangumi 默认分类未设置为二次元。');
+assert_bangumi_test($items[0]['source_url'] === 'https://bgm.tv/subject/12345', 'Bangumi 条目来源链接未生成。');
+assert_bangumi_test($items[0]['images'][0]['url'] === 'https://lain.bgm.tv/pic/cover/l/ab/cd/12345_test.jpg', 'Bangumi 未选择大图封面。');
+
+echo "bangumi tests passed\n";

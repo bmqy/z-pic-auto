@@ -24,6 +24,11 @@ try {
     assert_config_sources_test($pexelsSources !== [], '配置加载器未保留 Pexels 来源。');
     assert_config_sources_test(($pexelsSources[0]['enabled'] ?? false) === true, 'PEXELS_API_KEY 未激活 Pexels 来源。');
     assert_config_sources_test(($sources[1]['url'] ?? '') === 'https://science.nasa.gov/feed/photojournal/latest-content/', '默认 NASA 来源与线上模板不一致。');
+    $bangumiSources = array_values(array_filter($sources, function (array $source): bool {
+        return strtolower((string) ($source['type'] ?? '')) === 'bangumi';
+    }));
+    assert_config_sources_test($bangumiSources !== [], '配置加载器未保留 Bangumi 来源。');
+    assert_config_sources_test(($bangumiSources[0]['category'] ?? '') === '二次元', 'Bangumi 来源默认分类不是二次元。');
     echo "config sources tests passed\n";
 } finally {
     if ($previousPexelsKey === false) {
