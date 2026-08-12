@@ -18,7 +18,7 @@ if ((string) ($_POST['action'] ?? '') === 'login') {
         $_SESSION['admin_authenticated'] = true;
         $isAuthenticated = true;
     } else {
-        $loginError = 'Token 不正确，请检查配置后重试。';
+        $loginError = '登录失败，请重试。';
         $isAuthenticated = false;
     }
 } elseif ($requestTokenMatches) {
@@ -52,12 +52,12 @@ if (!$isAuthenticated) {
             <a class="admin-login-brand" href="<?= h(site_url()) ?>"><span class="brand-mark">Z</span><span><strong><?= h((string) cfg('site_name')) ?></strong><small>ADMIN CONSOLE</small></span></a>
             <p class="section-kicker">ADMIN ACCESS</p>
             <h1>进入管理后台</h1>
-            <p class="admin-login-lead">输入 config/local.php 中配置的 admin_token，即可管理图集、运行采集任务和查看运行记录。</p>
+            <p class="admin-login-lead">请输入访问凭证以继续。</p>
             <?php if ($loginError !== ''): ?><div class="notice failed"><?= h($loginError) ?></div><?php endif; ?>
             <form method="post" class="admin-login-form">
                 <input type="hidden" name="action" value="login">
-                <label for="admin-token">管理 Token</label>
-                <input id="admin-token" name="token" type="password" autocomplete="current-password" placeholder="粘贴 Token" required autofocus>
+                <label for="admin-credential">访问凭证</label>
+                <input id="admin-credential" name="token" type="password" autocomplete="current-password" placeholder="请输入访问凭证" required autofocus>
                 <button class="button admin-login-button" type="submit">登录后台 <span aria-hidden="true">→</span></button>
             </form>
             <a class="admin-back-link" href="<?= h(site_url()) ?>">← 返回网站首页</a>
