@@ -13,20 +13,31 @@ $config['download_images'] = false;
 require_once __DIR__ . '/../app/functions.php';
 require_once __DIR__ . '/../app/Repository.php';
 require_once __DIR__ . '/../app/Translator.php';
+require_once __DIR__ . '/../app/SourceLogger.php';
 require_once __DIR__ . '/../app/Collector.php';
 
 try {
+    $sources = (array) ($config['sources'] ?? []);
+    $configuredSourceCount = SourceLogger::writeSources($sources, STDERR);
+    $enabledSourceCount = SourceLogger::enabledCount($sources);
     $collector = new Collector(null, $config);
     $items = $collector->exportTranslatedItems();
-    foreach ($collector->getExportWarnings() as $warning) {
+    $warnings = $collector->getExportWarnings();
+    foreach ($warnings as $warning) {
         fwrite(STDERR, $warning . PHP_EOL);
     }
+    fwrite(STDERR, SourceLogger::formatSummary([
+        'configured_sources' => $configuredSourceCount,
+        'enabled_sources' => $enabledSourceCount,
+        'exported_items' => count($items),
+        'warnings' => count($warnings),
+    ]) . PHP_EOL);
     if ($items === []) {
         throw new RuntimeException('所有启用来源均未产生可导入内容。');
     }
     echo json_encode([
         'items' => $items,
-        'warnings' => $collector->getExportWarnings(),
+        'warnings' => $warnings,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     echo PHP_EOL;
 } catch (Throwable $error) {
