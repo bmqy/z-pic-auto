@@ -50,7 +50,7 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 
 如果修改了定时时间，请按 UTC 填写 cron 表达式。工作流会在返回 HTTP 错误或任一来源返回 `[failed]` 时标记为失败。
 
-`collect-actions.yml` 使用仓库中的 `config/local.example.php` 读取公开采集源配置；翻译服务由 Actions 端调用，生产服务器不需要能够访问翻译服务。导入接口使用 `X-Admin-Token` 请求头认证，生产服务器仍只负责本机数据库写入。
+`collect-actions.yml` 与线上站点共用 `config/loader.php` 加载配置：以 `config/local.example.php` 为默认来源，叠加 `config/local.php` 和环境变量；Actions 运行时关闭数据库必需校验，但会使用相同的 `PEXELS_API_KEY` 激活规则。翻译服务由 Actions 端调用，生产服务器不需要能够访问翻译服务。导入接口使用 `X-Admin-Token` 请求头认证，生产服务器仍只负责本机数据库写入。
 
 ## GitHub Actions FTP 发布
 
