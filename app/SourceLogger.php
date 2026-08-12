@@ -53,4 +53,14 @@ final class SourceLogger
         $encoded = json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         return '[actions-source-summary] ' . ($encoded === false ? '{}' : $encoded);
     }
+
+    public static function formatResults(array $results): array
+    {
+        $lines = [];
+        foreach ($results as $result) {
+            $encoded = json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $lines[] = '[actions-source-result] ' . ($encoded === false ? '{}' : $encoded);
+        }
+        return $lines;
+    }
 }

@@ -22,6 +22,9 @@ try {
     $enabledSourceCount = SourceLogger::enabledCount($sources);
     $collector = new Collector(null, $config);
     $items = $collector->exportTranslatedItems();
+    foreach (SourceLogger::formatResults($collector->getExportSourceResults()) as $line) {
+        fwrite(STDERR, $line . PHP_EOL);
+    }
     $warnings = $collector->getExportWarnings();
     foreach ($warnings as $warning) {
         fwrite(STDERR, $warning . PHP_EOL);

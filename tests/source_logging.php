@@ -32,5 +32,15 @@ assert_source_logging_test(strpos($lines[0], '"enabled":true') !== false, '来�
 assert_source_logging_test(strpos($lines[0], 'https://example.com/feed.xml') !== false, '来源日志未记录 URL。');
 assert_source_logging_test(SourceLogger::enabledCount($sources) === 1, '启用来源计数不正确。');
 assert_source_logging_test(strpos(SourceLogger::formatSummary(['enabled_sources' => 1]), '[actions-source-summary]') === 0, '来源汇总日志前缀不正确。');
+$resultLines = SourceLogger::formatResults([[
+    'index' => 0,
+    'status' => 'failed',
+    'fetched_items' => 0,
+    'exported_items' => 0,
+    'skipped_items' => 0,
+    'error' => 'HTTP 429',
+]]);
+assert_source_logging_test(strpos($resultLines[0], '[actions-source-result]') === 0, '来源结果日志前缀不正确。');
+assert_source_logging_test(strpos($resultLines[0], 'HTTP 429') !== false, '来源结果日志未记录错误信息。');
 
 echo "source logging tests passed\n";

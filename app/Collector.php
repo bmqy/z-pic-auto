@@ -7,6 +7,7 @@ final class Collector
     private $config;
     private $translator;
     private $exportWarnings = [];
+    private $exportSourceResults = [];
 
     public function __construct(?Repository $repository, array $config, ?TranslatorInterface $translator = null)
     {
@@ -22,29 +23,70 @@ final class Collector
     {
         $exported = [];
         $this->exportWarnings = [];
-        foreach ((array) $this->config['sources'] as $source) {
+        $this->exportSourceResults = [];
+        foreach ((array) $this->config['sources'] as $sourceIndex => $source) {
+            $sourceLabel = trim((string) ($source['name'] ?? $source['url'] ?? ''));
+            $sourceResult = [
+                'index' => (int) $sourceIndex,
+                'name' => $sourceLabel,
+                'type' => strtolower((string) ($source['type'] ?? 'json')),
+                'url' => trim((string) ($source['url'] ?? '')),
+            ];
             if (!($source['enabled'] ?? false) || empty($source['url'])) {
+                $this->exportSourceResults[] = array_merge($sourceResult, [
+                    'status' => 'disabled',
+                    'fetched_items' => 0,
+                    'exported_items' => 0,
+                    'skipped_items' => 0,
+                    'message' => '来源未启用或缺少 URL。',
+                ]);
                 continue;
             }
+            $fetchedCount = 0;
+            $exportedCount = 0;
+            $skippedCount = 0;
             try {
                 $sourceName = $this->translator->translate(trim((string) ($source['name'] ?? $source['url'])));
-                foreach ($this->fetchItems($source) as $item) {
+                $items = $this->fetchItems($source);
+                $fetchedCount = count($items);
+                foreach ($items as $item) {
                     try {
                         $normalized = $this->normalizeItem($item, $source);
                     } catch (Throwable $error) {
+                        $skippedCount++;
                         $this->exportWarnings[] = '来源 [' . trim((string) ($source['name'] ?? $source['url'])) . '] 单项跳过：' . $error->getMessage();
                         continue;
                     }
                     if ($normalized === null) {
+                        $skippedCount++;
                         continue;
                     }
                     $exported[] = [
                         'source_name' => $sourceName,
                         'item' => $normalized,
                     ];
+                    $exportedCount++;
                 }
+                $status = $fetchedCount === 0 ? 'empty' : ($exportedCount === 0 ? 'skipped' : 'success');
+                $message = $status === 'empty'
+                    ? '请求成功，但没有返回项目。'
+                    : ($status === 'skipped' ? '抓取成功，但所有项目均被跳过。' : '抓取并规范化成功。');
+                $this->exportSourceResults[] = array_merge($sourceResult, [
+                    'status' => $status,
+                    'fetched_items' => $fetchedCount,
+                    'exported_items' => $exportedCount,
+                    'skipped_items' => $skippedCount,
+                    'message' => $message,
+                ]);
             } catch (Throwable $error) {
                 $this->exportWarnings[] = '来源 [' . trim((string) ($source['name'] ?? $source['url'])) . '] 跳过：' . $error->getMessage();
+                $this->exportSourceResults[] = array_merge($sourceResult, [
+                    'status' => 'failed',
+                    'fetched_items' => $fetchedCount,
+                    'exported_items' => $exportedCount,
+                    'skipped_items' => $skippedCount,
+                    'error' => $error->getMessage(),
+                ]);
             }
         }
         return $exported;
@@ -53,6 +95,11 @@ final class Collector
     public function getExportWarnings(): array
     {
         return $this->exportWarnings;
+    }
+
+    public function getExportSourceResults(): array
+    {
+        return $this->exportSourceResults;
     }
 
     /**
