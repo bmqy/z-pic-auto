@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/../app/bootstrap.php';
+$config = require __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../app/functions.php';
 
 session_name('z_pic_admin');
 session_start();
@@ -97,6 +98,9 @@ if (!$isAuthenticated) {
     </html><?php
     exit;
 }
+
+// 登录校验不依赖数据库；认证成功后再初始化后台模块，避免登录请求被数据库初始化阻塞。
+require __DIR__ . '/../app/bootstrap.php';
 
 $results = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
