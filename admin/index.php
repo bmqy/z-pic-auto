@@ -223,9 +223,12 @@ $adminPageUrl = function (string $targetTab, string $pageKey, int $page): string
                                 <?php if (!$gallery['images']): ?>
                                     <p class="empty">该图集没有图片。</p>
                                 <?php else: ?>
-                                    <div class="admin-images">
-                                        <?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image"><a href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-footer"><span>#<?= $imageIndex + 1 ?></span><form method="post" class="js-confirm-form" data-confirm-title="删除图片" data-confirm-message="确定删除这张图片吗？"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div></div><?php endforeach; ?>
-                                    </div>
+                                    <details class="admin-gallery-images">
+                                        <summary class="admin-images-toggle"><span class="admin-images-preview"><img src="<?= h(display_image_url((string) $gallery['images'][0]['local_path'], (string) $gallery['images'][0]['source_url'])) ?>" alt=""></span><span><strong>查看 <?= (int) $gallery['image_count'] ?> 张图片</strong><small>展开管理图片</small></span></summary>
+                                        <div class="admin-images-list">
+                                            <?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image-row"><a class="admin-image-thumb" href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-info"><strong>#<?= $imageIndex + 1 ?> 图片</strong><small><?= h((string) ($image['alt_text'] ?: '无描述')) ?></small></div><form method="post" class="js-confirm-form" data-confirm-title="删除图片" data-confirm-message="确定删除这张图片吗？"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div><?php endforeach; ?>
+                                        </div>
+                                    </details>
                                 <?php endif; ?>
                                 <form method="post" class="admin-gallery-delete js-confirm-form" data-confirm-title="删除图集" data-confirm-message="确定删除整个图集及其全部图片吗？"><input type="hidden" name="action" value="delete_gallery"><input type="hidden" name="gallery_id" value="<?= (int) $gallery['id'] ?>"><button class="button danger" type="submit">删除图集</button></form>
                             </article>
