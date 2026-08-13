@@ -36,3 +36,4 @@
 @media(max-width:620px){.admin-gallery>.admin-images-toggle{padding:5px 6px;font-size:.58rem}.admin-gallery>.admin-images-list{padding-left:44px}.admin-gallery>.admin-images-list .admin-image-row{grid-template-columns:36px minmax(0,1fr) auto}}
 .admin-gallery>.admin-images-toggle::after{display:inline-block;width:0;height:0;margin-left:6px;border-top:5px solid currentColor;border-right:4px solid transparent;border-left:4px solid transparent;color:var(--accent-dark);content:'';vertical-align:middle;transform:rotate(-90deg)}
 .admin-gallery>.admin-images-toggle[aria-expanded="true"]::after{content:'';transform:rotate(0deg)}
+.admin-main{margin:0 auto}
