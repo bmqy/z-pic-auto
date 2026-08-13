@@ -97,4 +97,21 @@ $calendarItems = $parse->invoke($collector, json_encode([[
 assert_bangumi_test(count($calendarItems) === 1, 'Bangumi 日历降级响应未解析。');
 assert_bangumi_test($calendarItems[0]['title'] === '日历动画', 'Bangumi 日历未优先使用中文标题。');
 
+$embeddedConfig = $config;
+$embeddedConfig['download_images'] = true;
+$embeddedConfig['image_dir'] = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'z-pic-auto-bangumi-test';
+@mkdir($embeddedConfig['image_dir'], 0777, true);
+$embeddedCollector = new Collector($repository, $embeddedConfig);
+$embeddedDownload = new ReflectionMethod(Collector::class, 'downloadEmbeddedImage');
+$embeddedDownload->setAccessible(true);
+$embeddedImage = $embeddedDownload->invoke($embeddedCollector, [
+    'data' => 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+], 'https://lain.bgm.tv/pic/cover/test.png');
+assert_bangumi_test(is_array($embeddedImage) && $embeddedImage['width'] === 1 && $embeddedImage['height'] === 1, 'Actions 嵌入图片未能在服务端解码落库。');
+if (is_array($embeddedImage) && !empty($embeddedImage['path'])) {
+    $embeddedFile = $embeddedConfig['image_dir'] . DIRECTORY_SEPARATOR . basename($embeddedImage['path']);
+    @unlink($embeddedFile);
+}
+@rmdir($embeddedConfig['image_dir']);
+
 echo "bangumi tests passed\n";

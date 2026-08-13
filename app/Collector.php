@@ -64,6 +64,7 @@ final class Collector
                         $skippedCount++;
                         continue;
                     }
+                    $normalized = $this->embedSourceImages($normalized, $source);
                     $exported[] = [
                         'source_name' => $sourceName,
                         'item' => $normalized,
@@ -811,6 +812,49 @@ final class Collector
         return '未分类';
     }
 
+    /**
+     * Actions 端先下载图片并随 JSON 传输，避免生产虚拟主机再次连接 Bangumi 图片域名。
+     */
+    private function embedSourceImages(array $item, array $source): array
+    {
+        if (strtolower((string) ($source['type'] ?? '')) !== 'bangumi') {
+            return $item;
+        }
+        $images = [];
+        foreach ((array) ($item['images'] ?? []) as $image) {
+            if (!is_array($image) || trim((string) ($image['url'] ?? '')) === '') {
+                continue;
+            }
+            $downloadUrls = [(string) $image['url']];
+            foreach ((array) ($image['fallback_urls'] ?? []) as $fallbackUrl) {
+                $fallbackUrl = trim((string) $fallbackUrl);
+                if ($fallbackUrl !== '' && !in_array($fallbackUrl, $downloadUrls, true)) {
+                    $downloadUrls[] = $fallbackUrl;
+                }
+            }
+            foreach ($downloadUrls as $downloadUrl) {
+                $download = $this->downloadImageData($downloadUrl);
+                if ($download === null) {
+                    continue;
+                }
+                if (strlen($download['body']) > (int) ($this->config['max_embedded_image_bytes'] ?? 4 * 1024 * 1024)) {
+                    $this->lastImageDownloadFailure = 'Actions 图片数据超过传输大小限制。';
+                    continue;
+                }
+                $image['embedded'] = [
+                    'data' => base64_encode($download['body']),
+                    'mime' => $download['mime'],
+                    'width' => $download['width'],
+                    'height' => $download['height'],
+                ];
+                break;
+            }
+            $images[] = $image;
+        }
+        $item['images'] = $images;
+        return $item;
+    }
+
     private function prepareImages(array $images): array
     {
         $this->lastImageDownloadFailure = '';
@@ -825,6 +869,9 @@ final class Collector
             $height = 0;
             if ($this->config['download_images']) {
                 $download = null;
+                if (is_array($image['embedded'] ?? null)) {
+                    $download = $this->downloadEmbeddedImage($image['embedded'], $url);
+                }
                 $downloadUrls = [$url];
                 $fallbackUrls = (array) ($image['fallback_urls'] ?? []);
                 if (!empty($image['fallback_url'])) {
@@ -836,10 +883,12 @@ final class Collector
                         $downloadUrls[] = $fallbackUrl;
                     }
                 }
-                foreach ($downloadUrls as $downloadUrl) {
-                    $download = $this->downloadImage($downloadUrl);
-                    if ($download !== null) {
-                        break;
+                if ($download === null) {
+                    foreach ($downloadUrls as $downloadUrl) {
+                        $download = $this->downloadImage($downloadUrl);
+                        if ($download !== null) {
+                            break;
+                        }
                     }
                 }
                 if ($download === null) {
@@ -862,6 +911,30 @@ final class Collector
 
     private function downloadImage(string $url): ?array
     {
+        $data = $this->downloadImageData($url);
+        if ($data === null) {
+            return null;
+        }
+        $extension = $this->imageExtension($data['mime']);
+        $filename = sha1($url) . '.' . $extension;
+        $absolute = rtrim((string) $this->config['image_dir'], '/\\') . DIRECTORY_SEPARATOR . $filename;
+        if (!is_file($absolute) && @file_put_contents($absolute, $data['body'], LOCK_EX) === false) {
+            $this->lastImageDownloadFailure = '图片文件写入失败。';
+            return null;
+        }
+        $this->lastImageDownloadFailure = '';
+        return [
+            'path' => trim((string) $this->config['image_url_prefix'], '/') . '/' . $filename,
+            'width' => $data['width'],
+            'height' => $data['height'],
+        ];
+    }
+
+    /**
+     * Actions 和生产端共用的图片下载及格式校验逻辑。
+     */
+    private function downloadImageData(string $url): ?array
+    {
         [$body, $status, $contentType, $error] = request_url(
             $url,
             (int) $this->config['request_timeout'],
@@ -877,33 +950,63 @@ final class Collector
             return null;
         }
         $mime = (string) $info['mime'];
-        if ($mime === 'image/jpeg') {
-            $extension = 'jpg';
-        } elseif ($mime === 'image/png') {
-            $extension = 'png';
-        } elseif ($mime === 'image/gif') {
-            $extension = 'gif';
-        } elseif ($mime === 'image/webp') {
-            $extension = 'webp';
-        } else {
-            $extension = 'bin';
-        }
-        if ($extension === 'bin') {
+        if ($this->imageExtension($mime) === '') {
             $this->lastImageDownloadFailure = '图片格式不受支持（' . $mime . '）。';
             return null;
         }
+        return [
+            'body' => $body,
+            'mime' => $mime,
+            'width' => (int) $info[0],
+            'height' => (int) $info[1],
+        ];
+    }
+
+    private function downloadEmbeddedImage(array $embedded, string $url): ?array
+    {
+        $encoded = trim((string) ($embedded['data'] ?? ''));
+        if ($encoded === '') {
+            return null;
+        }
+        $body = base64_decode($encoded, true);
+        if ($body === false || strlen($body) > (int) $this->config['max_image_bytes']) {
+            $this->lastImageDownloadFailure = 'Actions 图片数据无效或超过大小限制。';
+            return null;
+        }
+        $info = @getimagesizefromstring($body);
+        if ($info === false || empty($info['mime']) || $this->imageExtension((string) $info['mime']) === '') {
+            $this->lastImageDownloadFailure = 'Actions 图片数据不是支持的图片格式。';
+            return null;
+        }
+        $extension = $this->imageExtension((string) $info['mime']);
         $filename = sha1($url) . '.' . $extension;
         $absolute = rtrim((string) $this->config['image_dir'], '/\\') . DIRECTORY_SEPARATOR . $filename;
         if (!is_file($absolute) && @file_put_contents($absolute, $body, LOCK_EX) === false) {
             $this->lastImageDownloadFailure = '图片文件写入失败。';
             return null;
         }
-        $this->lastImageDownloadFailure = '';
         return [
             'path' => trim((string) $this->config['image_url_prefix'], '/') . '/' . $filename,
             'width' => (int) $info[0],
             'height' => (int) $info[1],
         ];
+    }
+
+    private function imageExtension(string $mime): string
+    {
+        if ($mime === 'image/jpeg') {
+            return 'jpg';
+        }
+        if ($mime === 'image/png') {
+            return 'png';
+        }
+        if ($mime === 'image/gif') {
+            return 'gif';
+        }
+        if ($mime === 'image/webp') {
+            return 'webp';
+        }
+        return '';
     }
 
     /**
@@ -913,7 +1016,7 @@ final class Collector
     {
         $host = strtolower((string) parse_url($url, PHP_URL_HOST));
         $headers = ['Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'];
-        if ($host === 'lain.bgm.tv' || $host === 'api.bgm.tv') {
+        if (in_array($host, ['lain.bgm.tv', 'api.bgm.tv', 'navi.bgm.tv', 'fast.bgm.tv', 'chii.in'], true)) {
             $headers[] = 'Referer: https://bgm.tv/';
         }
         return $headers;

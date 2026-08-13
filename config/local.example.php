@@ -26,6 +26,8 @@ return [
     'image_url_prefix' => 'storage/images',
     'download_images' => true,
     'max_image_bytes' => 8 * 1024 * 1024,
+    // Actions 图片随 JSON 传输时使用 base64，限制单张传输大小，避免超过 PHP POST 限制。
+    'max_embedded_image_bytes' => 4 * 1024 * 1024,
     'request_timeout' => 20,
     'user_agent' => 'Z-Pic-Auto/1.0 (+https://github.com/bmqy/z-pic-auto)',
     // Pexels API Key 建议通过 .env 中的 PEXELS_API_KEY 注入，不要提交到仓库。

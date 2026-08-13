@@ -41,7 +41,7 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 
 ## GitHub Actions 定时采集
 
-项目提供两个 Actions 采集工作流：`.github/workflows/collect-actions.yml` 默认每天北京时间 10:00 在 GitHub Runner 抓取并翻译内容，再通过 `index.php?route=task/import` 将 JSON 提交给生产站点；PHP 站点在本机连接 MySQL、下载图片并入库。`.github/workflows/collect.yml` 保留为直接调用站点 `index.php?route=task/collect` 的备用方式。
+项目提供两个 Actions 采集工作流：`.github/workflows/collect-actions.yml` 默认每天北京时间 10:00 在 GitHub Runner 抓取并翻译内容，再通过 `index.php?route=task/import` 将 JSON 提交给生产站点。Bangumi 图片会在 Actions 端先下载并以 base64 随 payload 传输，生产站点优先使用嵌入图片落库，无法嵌入时才回退到 URL 下载；`.github/workflows/collect.yml` 保留为直接调用站点 `index.php?route=task/collect` 的备用方式。
 
 请在仓库 Settings → Secrets and variables → Actions 中配置：
 
