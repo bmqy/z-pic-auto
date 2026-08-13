@@ -54,6 +54,8 @@ http://你的域名/index.php?route=task/collect&token=你的令牌
 
 Actions 日志会输出 `[actions-source-config]` 来源配置行、`[actions-source-result]` 来源执行结果行和 `[actions-source-summary]` 汇总行。结果行包含来源状态（`disabled`、`failed`、`empty`、`skipped` 或 `success`）、抓取数量、导出数量、跳过数量和错误信息，可据此与线上运行记录核对实际抓取源及执行结果。
 
+线上导入响应还会返回每个来源的 `source_runs` 明细。若图集被跳过，后台运行记录会说明是数据库重复，还是图片 URL 无效、图片下载失败、格式不支持或文件超过大小限制，并附带相关图片 URL。NASA 突发新闻来源默认在请求前等待 5 秒，遇到 429 时按 30 秒、60 秒、120 秒退避重试。
+
 ## GitHub Actions FTP 发布
 
 项目提供 `.github/workflows/deploy-ftp.yml`：推送到 `main` 分支或手动运行工作流时，会将站点文件同步到 FTP。工作流会保留服务器上的 `storage/` 和生产配置，不会上传 `.env`、本地数据库、测试文件或 Docker 配置。

@@ -20,6 +20,11 @@ final class SourceLogger
             if ($payload['type'] === 'bangumi' && !empty($source['params']) && is_array($source['params'])) {
                 $payload['params'] = $source['params'];
             }
+            foreach (['request_delay', 'retry_delays'] as $key) {
+                if (array_key_exists($key, $source)) {
+                    $payload[$key] = $source[$key];
+                }
+            }
             $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             if ($encoded === false) {
                 $encoded = '{}';

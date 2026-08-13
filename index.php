@@ -126,7 +126,8 @@ try {
             exit;
         }
         header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode((new Collector($repository, $config))->importTranslatedItems($payload['items'], (array) ($payload['source_results'] ?? [])), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $result = (new Collector($repository, $config))->importTranslatedItems($payload['items'], (array) ($payload['source_results'] ?? []));
+        echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
     if ($route === 'task/collect') {

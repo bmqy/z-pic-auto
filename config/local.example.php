@@ -81,6 +81,8 @@ return [
             'type' => 'rss',
             'url' => 'https://www.nasa.gov/rss/dyn/breaking_news.rss',
             'enabled' => true,
+            'request_delay' => 5,
+            'retry_delays' => [30, 60, 120],
             'max_items' => 1,
             'max_images' => 1,
             'request_timeout' => 20,

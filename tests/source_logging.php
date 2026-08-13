@@ -52,4 +52,14 @@ $sourceLines = SourceLogger::formatSources([[
 ]]);
 assert_source_logging_test(strpos($sourceLines[0], '"params":{"type":2,"limit":1}') !== false, 'Bangumi 请求参数未写入 Actions 配置日志。');
 
+$nasaLines = SourceLogger::formatSources([[
+    'enabled' => true,
+    'name' => 'NASA 突发新闻',
+    'type' => 'rss',
+    'url' => 'https://www.nasa.gov/rss/dyn/breaking_news.rss',
+    'request_delay' => 5,
+    'retry_delays' => [30, 60, 120],
+]]);
+assert_source_logging_test(strpos($nasaLines[0], '"retry_delays":[30,60,120]') !== false, 'NASA 重试间隔未写入 Actions 配置日志。');
+
 echo "source logging tests passed\n";

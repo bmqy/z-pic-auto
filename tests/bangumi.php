@@ -23,6 +23,12 @@ $repository = new Repository($database, $config);
 $repository->ensureSchema();
 $collector = new Collector($repository, $config);
 
+$retryDelay = new ReflectionMethod(Collector::class, 'retryDelay');
+$retryDelay->setAccessible(true);
+assert_bangumi_test($retryDelay->invoke($collector, [], 0, 429) === 30, '429 默认重试间隔未增加。');
+assert_bangumi_test($retryDelay->invoke($collector, [], 1, 429) === 60, '429 第二次重试间隔不正确。');
+assert_bangumi_test($retryDelay->invoke($collector, ['retry_delays' => [7, 11]], 1, 429) === 11, '来源自定义重试间隔未生效。');
+
 $buildUrl = new ReflectionMethod(Collector::class, 'buildSourceRequestUrl');
 $buildUrl->setAccessible(true);
 $requestUrl = $buildUrl->invoke($collector, [

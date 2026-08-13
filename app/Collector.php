@@ -130,6 +130,8 @@ final class Collector
                 'added' => 0,
                 'skipped' => 0,
                 'failed' => 0,
+                'skip_reasons' => [],
+                'failure_reasons' => [],
             ];
         }
         foreach ($entries as $entry) {
@@ -142,6 +144,8 @@ final class Collector
                     'added' => 0,
                     'skipped' => 0,
                     'failed' => 0,
+                    'skip_reasons' => [],
+                    'failure_reasons' => [],
                 ];
             }
             try {
@@ -158,17 +162,29 @@ final class Collector
                 if ($item['title'] === '' || $item['fingerprint'] === '' || $images === []) {
                     $failed++;
                     $sourceStats[$entrySourceName]['failed']++;
+                    $sourceStats[$entrySourceName]['failure_reasons'][] = '条目缺少标题、指纹或图片。';
                     continue;
                 }
                 if ($this->repository->galleryExistsByIdentity($item['fingerprint'], $item['identity_source_url'])) {
                     $skipped++;
                     $sourceStats[$entrySourceName]['skipped']++;
+                    $sourceStats[$entrySourceName]['skip_reasons'][] = '数据库已存在相同指纹或来源 URL。';
                     continue;
                 }
                 $preparedImages = $this->prepareImages($images);
                 if ($preparedImages === []) {
                     $skipped++;
                     $sourceStats[$entrySourceName]['skipped']++;
+                    $validImageUrls = array_filter($images, function (array $image): bool {
+                        return preg_match('#^https?://#i', (string) ($image['url'] ?? '')) === 1;
+                    });
+                    $imageUrls = array_values(array_map(function (array $image): string {
+                        return trim((string) ($image['url'] ?? ''));
+                    }, $images));
+                    $imageReason = $validImageUrls === []
+                        ? '图片 URL 为空或协议无效。'
+                        : '图片下载失败、响应不是支持的图片格式或超过大小限制。';
+                    $sourceStats[$entrySourceName]['skip_reasons'][] = $imageReason . ' URL：' . implode('，', array_slice($imageUrls, 0, 3));
                     continue;
                 }
                 $item['images'] = $images;
@@ -178,14 +194,32 @@ final class Collector
             } catch (Throwable $error) {
                 $failed++;
                 $sourceStats[$entrySourceName]['failed']++;
+                $sourceStats[$entrySourceName]['failure_reasons'][] = $error->getMessage();
             }
         }
         $finished = now_string();
+        $sourceRuns = [];
         foreach ($sourceStats as $sourceStat) {
             $runStatus = $sourceStat['status'] === 'failed' || $sourceStat['failed'] > 0 ? 'failed' : 'success';
             $message = $sourceStat['message'] !== '' ? $sourceStat['message'] . ' ' : '';
             $message .= 'Actions 导入：新增 ' . $sourceStat['added'] . '，跳过 ' . $sourceStat['skipped'] . '，失败 ' . $sourceStat['failed'] . '。';
+            $skipReasons = array_values(array_unique(array_filter($sourceStat['skip_reasons'])));
+            $failureReasons = array_values(array_unique(array_filter($sourceStat['failure_reasons'])));
+            if ($skipReasons !== []) {
+                $message .= ' 跳过原因：' . implode('；', $skipReasons);
+            }
+            if ($failureReasons !== []) {
+                $message .= ' 失败原因：' . implode('；', $failureReasons);
+            }
             $this->repository->recordRun($sourceStat['source_name'], $runStatus, $sourceStat['added'], $message, $started, $finished);
+            $sourceRuns[] = [
+                'source_name' => $sourceStat['source_name'],
+                'status' => $runStatus,
+                'added' => $sourceStat['added'],
+                'skipped' => $sourceStat['skipped'],
+                'failed' => $sourceStat['failed'],
+                'message' => $message,
+            ];
         }
         return [
             'status' => $failed > 0 ? 'failed' : 'success',
@@ -193,6 +227,7 @@ final class Collector
             'skipped' => $skipped,
             'failed' => $failed,
             'message' => 'Actions 已翻译内容导入完成。',
+            'source_runs' => $sourceRuns,
         ];
     }
 
@@ -283,6 +318,10 @@ final class Collector
         $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
         $type = strtolower((string) ($source['type'] ?? 'json'));
         $requestUrl = $this->buildSourceRequestUrl($source, $type);
+        $requestDelay = max(0, (int) ($source['request_delay'] ?? 0));
+        if ($requestDelay > 0) {
+            sleep($requestDelay);
+        }
         $requestHeaders = [];
         if ($type === 'pexels') {
             $apiKey = trim((string) ($source['api_key'] ?? ($this->config['pexels_api_key'] ?? '')));
@@ -307,7 +346,7 @@ final class Collector
             if (!$retryable || $attempt === 2) {
                 break;
             }
-            sleep(5 * ($attempt + 1));
+            sleep($this->retryDelay($source, $attempt, $status));
         }
         if (($body === '' || ($status >= 400 && $status !== 0)) && $type === 'bangumi') {
             // Bangumi 列表接口偶发返回 400 时，使用官方日历接口继续提供公开动画条目。
@@ -351,6 +390,21 @@ final class Collector
             unset($item);
         }
         return $items;
+    }
+
+    /**
+     * 计算来源重试等待时间。429 默认使用更长退避，避免持续撞击限流窗口。
+     */
+    private function retryDelay(array $source, int $attempt, int $status): int
+    {
+        $configured = array_values(array_filter((array) ($source['retry_delays'] ?? []), function ($delay): bool {
+            return is_numeric($delay) && (int) $delay >= 0;
+        }));
+        if ($configured === []) {
+            $configured = $status === 429 ? [30, 60, 120] : [5, 10, 20];
+        }
+        $index = min(max(0, $attempt), count($configured) - 1);
+        return (int) $configured[$index];
     }
 
     /**
