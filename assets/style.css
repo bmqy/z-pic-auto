@@ -28,3 +28,8 @@
 @media(max-width:520px){.site-footer .container{display:flex;align-items:center;flex-wrap:wrap;gap:5px 16px}.site-footer .container>span:last-child{margin-left:auto}.site-footer a{display:inline}}
 .admin-gallery-images .admin-images-list{grid-column:1 / -1;justify-self:stretch;align-self:stretch;width:100%;max-width:none;min-width:0}
 .admin-gallery-images .admin-image-row{justify-self:stretch;width:100%;max-width:none;min-width:0}
+.admin-gallery-images{grid-column:1 / -1;grid-row:1 / span 2;display:grid;grid-template-columns:46px minmax(170px,1fr) auto auto;align-items:center;column-gap:12px;width:100%;min-width:0;pointer-events:none}
+.admin-gallery-images .admin-images-toggle{grid-column:4;grid-row:1;justify-self:end;pointer-events:auto}
+.admin-gallery-images .admin-images-list{grid-column:1 / -1;grid-row:2;width:100%;margin:0 0 10px;padding:8px 0 0 58px;border-top:1px solid var(--line);pointer-events:auto}
+.admin-gallery-images .admin-image-row{grid-template-columns:46px minmax(0,1fr) auto}
+@media(max-width:620px){.admin-gallery-images{grid-template-columns:36px minmax(100px,1fr) auto auto;column-gap:8px}.admin-gallery-images .admin-images-list{padding-left:44px}}
