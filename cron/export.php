@@ -41,6 +41,7 @@ try {
     echo json_encode([
         'items' => $items,
         'warnings' => $warnings,
+        'source_results' => $collector->getExportSourceResults(),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     echo PHP_EOL;
 } catch (Throwable $error) {

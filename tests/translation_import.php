@@ -30,10 +30,22 @@ $result = (new Collector($repository, $config))->importTranslatedItems([
             ]],
         ],
     ],
-]);
+], [[
+    'name' => 'NASA',
+    'run_source_name' => 'NASA',
+    'status' => 'success',
+    'message' => '抓取并规范化成功。',
+]]);
 
 if ($result['status'] !== 'success' || (int) $result['added'] !== 1) {
     throw new RuntimeException('翻译内容导入测试失败。');
+}
+if ($repository->countRuns() !== 1) {
+    throw new RuntimeException('Actions 导入未写入来源运行记录。');
+}
+$run = $repository->recentRuns(1)[0] ?? [];
+if (($run['source_name'] ?? '') !== 'NASA' || ($run['status'] ?? '') !== 'success' || (int) ($run['added_count'] ?? 0) !== 1) {
+    throw new RuntimeException('Actions 来源运行记录内容不正确。');
 }
 
 echo "translation import tests passed\n";

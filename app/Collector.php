@@ -45,6 +45,7 @@ final class Collector
             $fetchedCount = 0;
             $exportedCount = 0;
             $skippedCount = 0;
+            $sourceName = $sourceLabel;
             try {
                 $sourceName = $this->translator->translate(trim((string) ($source['name'] ?? $source['url'])));
                 $items = $this->fetchItems($source);
@@ -72,6 +73,7 @@ final class Collector
                     ? '请求成功，但没有返回项目。'
                     : ($status === 'skipped' ? '抓取成功，但所有项目均被跳过。' : '抓取并规范化成功。');
                 $this->exportSourceResults[] = array_merge($sourceResult, [
+                    'run_source_name' => $sourceName,
                     'status' => $status,
                     'fetched_items' => $fetchedCount,
                     'exported_items' => $exportedCount,
@@ -81,6 +83,7 @@ final class Collector
             } catch (Throwable $error) {
                 $this->exportWarnings[] = '来源 [' . trim((string) ($source['name'] ?? $source['url'])) . '] 跳过：' . $error->getMessage();
                 $this->exportSourceResults[] = array_merge($sourceResult, [
+                    'run_source_name' => $sourceName,
                     'status' => 'failed',
                     'fetched_items' => $fetchedCount,
                     'exported_items' => $exportedCount,
@@ -105,12 +108,42 @@ final class Collector
     /**
      * 接收 Actions 已翻译内容，在站点服务器本机下载图片并写入数据库。
      */
-    public function importTranslatedItems(array $entries): array
+    public function importTranslatedItems(array $entries, array $sourceResults = []): array
     {
         $added = 0;
         $skipped = 0;
         $failed = 0;
+        $started = now_string();
+        $sourceStats = [];
+        foreach ($sourceResults as $sourceResult) {
+            if (!is_array($sourceResult) || strtolower((string) ($sourceResult['status'] ?? '')) === 'disabled') {
+                continue;
+            }
+            $sourceName = trim((string) ($sourceResult['run_source_name'] ?? $sourceResult['name'] ?? ''));
+            if ($sourceName === '') {
+                continue;
+            }
+            $sourceStats[$sourceName] = [
+                'source_name' => $sourceName,
+                'status' => strtolower((string) ($sourceResult['status'] ?? 'success')),
+                'message' => trim((string) ($sourceResult['message'] ?? $sourceResult['error'] ?? '')),
+                'added' => 0,
+                'skipped' => 0,
+                'failed' => 0,
+            ];
+        }
         foreach ($entries as $entry) {
+            $entrySourceName = trim((string) ($entry['source_name'] ?? 'Actions 导入')) ?: 'Actions 导入';
+            if (!isset($sourceStats[$entrySourceName])) {
+                $sourceStats[$entrySourceName] = [
+                    'source_name' => $entrySourceName,
+                    'status' => 'success',
+                    'message' => '',
+                    'added' => 0,
+                    'skipped' => 0,
+                    'failed' => 0,
+                ];
+            }
             try {
                 $item = (array) ($entry['item'] ?? []);
                 $images = array_values(array_filter((array) ($item['images'] ?? []), function ($image) {
@@ -124,23 +157,35 @@ final class Collector
                 $item['fingerprint'] = trim((string) ($item['fingerprint'] ?? ''));
                 if ($item['title'] === '' || $item['fingerprint'] === '' || $images === []) {
                     $failed++;
+                    $sourceStats[$entrySourceName]['failed']++;
                     continue;
                 }
                 if ($this->repository->galleryExistsByIdentity($item['fingerprint'], $item['identity_source_url'])) {
                     $skipped++;
+                    $sourceStats[$entrySourceName]['skipped']++;
                     continue;
                 }
                 $preparedImages = $this->prepareImages($images);
                 if ($preparedImages === []) {
                     $skipped++;
+                    $sourceStats[$entrySourceName]['skipped']++;
                     continue;
                 }
                 $item['images'] = $images;
                 $this->repository->createGallery($item, $preparedImages, trim((string) ($entry['source_name'] ?? '采集来源')) ?: '采集来源');
                 $added++;
+                $sourceStats[$entrySourceName]['added']++;
             } catch (Throwable $error) {
                 $failed++;
+                $sourceStats[$entrySourceName]['failed']++;
             }
+        }
+        $finished = now_string();
+        foreach ($sourceStats as $sourceStat) {
+            $runStatus = $sourceStat['status'] === 'failed' || $sourceStat['failed'] > 0 ? 'failed' : 'success';
+            $message = $sourceStat['message'] !== '' ? $sourceStat['message'] . ' ' : '';
+            $message .= 'Actions 导入：新增 ' . $sourceStat['added'] . '，跳过 ' . $sourceStat['skipped'] . '，失败 ' . $sourceStat['failed'] . '。';
+            $this->repository->recordRun($sourceStat['source_name'], $runStatus, $sourceStat['added'], $message, $started, $finished);
         }
         return [
             'status' => $failed > 0 ? 'failed' : 'success',
