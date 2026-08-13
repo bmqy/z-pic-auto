@@ -40,15 +40,15 @@
 
 /* 图集详情页：图片优先，文字信息退为辅助层级。 */
 .gallery-detail{max-width:1280px;margin:22px auto 64px;padding:0;background:transparent;border-radius:0;color:var(--ink)}
-.gallery-spotlight{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:18px;align-items:stretch}
+.gallery-spotlight{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,340px);gap:18px;align-items:start}
 .gallery-hero-frame{position:relative;display:grid;place-items:center;min-height:min(72vh,760px);margin:0;overflow:hidden;background:var(--night);border-radius:26px;box-shadow:0 24px 70px rgba(24,32,29,.14)}
 .gallery-hero-frame img{display:block;width:100%;height:100%;max-height:760px;object-fit:contain;background:var(--night)}
 .gallery-hero-frame figcaption{position:absolute;right:18px;bottom:16px;max-width:min(520px,70%);padding:8px 12px;border-radius:999px;background:rgba(24,32,29,.72);color:#f5f3ee;font-size:.72rem;backdrop-filter:blur(12px)}
-.gallery-summary{display:flex;flex-direction:column;justify-content:flex-end;gap:18px;min-height:100%;padding:26px;background:var(--paper);border:1px solid var(--line);border-radius:22px}
+.gallery-summary{position:sticky;top:98px;display:flex;flex-direction:column;justify-content:flex-start;gap:14px;align-self:start;min-height:0;padding:24px;background:var(--paper);border:1px solid var(--line);border-radius:22px;box-shadow:0 18px 52px rgba(24,32,29,.06)}
 .gallery-summary .eyebrow a,.gallery-empty-heading .eyebrow a{color:var(--accent-dark);text-decoration:none}
-.gallery-summary h1,.gallery-empty-heading h1{margin:0;font-size:clamp(1.45rem,2.4vw,2.3rem);line-height:1.08;letter-spacing:-.045em}
-.gallery-summary .lead{max-width:none;margin:0;color:var(--muted);font-size:.92rem}
-.gallery-summary .gallery-meta{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px 10px;flex:0 0 auto;border:0;padding:0;color:var(--muted);font-size:.72rem;white-space:normal}
+.gallery-summary h1,.gallery-empty-heading h1{margin:0;font-size:clamp(1.35rem,1.9vw,2rem);line-height:1.12;letter-spacing:-.035em}
+.gallery-summary .lead{display:-webkit-box;max-width:none;margin:0;color:var(--muted);font-size:.86rem;line-height:1.7;overflow:hidden;-webkit-box-orient:vertical;-webkit-line-clamp:4}
+.gallery-summary .gallery-meta{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;flex:0 0 auto;margin-top:4px;border:0;border-top:1px solid var(--line);padding:14px 0 0;color:var(--muted);font-size:.7rem;white-space:normal}
 .gallery-summary .gallery-meta span{display:inline-flex;align-items:center;min-height:28px;padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:#fff}
 .gallery-summary .gallery-meta span:first-child{color:var(--ink);font-size:.72rem;font-weight:800}
 .gallery-stream{margin-top:30px;padding:28px;background:var(--night);border-radius:24px;color:#f5f3ee}
@@ -63,5 +63,5 @@
 .gallery-empty-heading .lead{color:var(--muted)}
 .source-link{margin:24px 0 0;padding:14px 18px;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--muted);font-size:.78rem;overflow-wrap:anywhere}
 .source-link a{color:var(--accent-dark);font-weight:700}
-@media(max-width:900px){.gallery-spotlight{grid-template-columns:1fr}.gallery-hero-frame{min-height:auto}.gallery-hero-frame img{height:auto;max-height:none}.gallery-summary{min-height:0}.gallery-stream{padding:20px 14px}.gallery-images{columns:2 220px}}
+@media(max-width:900px){.gallery-spotlight{grid-template-columns:1fr}.gallery-hero-frame{min-height:auto}.gallery-hero-frame img{height:auto;max-height:none}.gallery-summary{position:static;min-height:0}.gallery-stream{padding:20px 14px}.gallery-images{columns:2 220px}}
 @media(max-width:520px){.gallery-detail{margin-top:14px}.gallery-hero-frame{border-radius:18px}.gallery-hero-frame figcaption{right:10px;bottom:10px;max-width:calc(100% - 20px);border-radius:12px}.gallery-summary{padding:20px 16px;border-radius:18px}.gallery-summary h1,.gallery-empty-heading h1{font-size:1.65rem}.gallery-stream{margin-top:18px;border-radius:18px}.gallery-stream-head{align-items:flex-start}.gallery-images{columns:1}.gallery-frame img{border-radius:12px}.source-link{margin-top:18px}.gallery-empty-heading{padding:28px 18px}}
