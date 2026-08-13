@@ -222,12 +222,10 @@ $adminPageUrl = function (string $targetTab, string $pageKey, int $page): string
                                 <div class="admin-gallery-heading"><div><p class="tag"><?= h((string) $gallery['category_name']) ?></p><h3><?= h((string) $gallery['title']) ?></h3><p class="admin-meta"><?= h((string) $gallery['created_at']) ?> · <?= (int) $gallery['image_count'] ?> 张图片</p></div></div>
                                 <form method="post" class="admin-gallery-delete js-confirm-form" data-confirm-title="删除图集" data-confirm-message="确定删除整个图集及其全部图片吗？"><input type="hidden" name="action" value="delete_gallery"><input type="hidden" name="gallery_id" value="<?= (int) $gallery['id'] ?>"><button class="button danger" type="submit">删除图集</button></form>
                                 <?php if ($gallery['images']): ?>
-                                    <details class="admin-gallery-images">
-                                        <summary class="admin-images-toggle button">展开图片列表</summary>
-                                        <div class="admin-images-list">
-                                            <?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image-row"><a class="admin-image-thumb" href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-info"><strong>#<?= $imageIndex + 1 ?> 图片</strong><small><?= h((string) ($image['alt_text'] ?: '无描述')) ?></small></div><form method="post" class="js-confirm-form" data-confirm-title="删除图片" data-confirm-message="确定删除这张图片吗？"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div><?php endforeach; ?>
-                                        </div>
-                                    </details>
+                                    <button class="admin-images-toggle button js-images-toggle" type="button" aria-expanded="false" aria-controls="admin-images-<?= (int) $gallery['id'] ?>" data-label-open="展开图片列表" data-label-close="收起图片列表">展开图片列表</button>
+                                    <div class="admin-images-list" id="admin-images-<?= (int) $gallery['id'] ?>" hidden>
+                                        <?php foreach ($gallery['images'] as $imageIndex => $image): ?><div class="admin-image-row"><a class="admin-image-thumb" href="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" target="_blank" rel="noreferrer"><img src="<?= h(display_image_url((string) $image['local_path'], (string) $image['source_url'])) ?>" alt="<?= h((string) $image['alt_text']) ?>"></a><div class="admin-image-info"><strong>#<?= $imageIndex + 1 ?> 图片</strong><small><?= h((string) ($image['alt_text'] ?: '无描述')) ?></small></div><form method="post" class="js-confirm-form" data-confirm-title="删除图片" data-confirm-message="确定删除这张图片吗？"><input type="hidden" name="action" value="delete_image"><input type="hidden" name="image_id" value="<?= (int) $image['id'] ?>"><button class="text-button danger-text" type="submit">删除图片</button></form></div><?php endforeach; ?>
+                                    </div>
                                 <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
@@ -257,6 +255,26 @@ $adminPageUrl = function (string $targetTab, string $pageKey, int $page): string
     </section>
 </div>
 <script>
+(function () {
+    var toggles = document.querySelectorAll('.js-images-toggle');
+    if (!toggles.length) {
+        return;
+    }
+
+    Array.prototype.forEach.call(toggles, function (toggle) {
+        toggle.addEventListener('click', function () {
+            var list = document.getElementById(toggle.getAttribute('aria-controls'));
+            if (!list) {
+                return;
+            }
+            var expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+            toggle.textContent = expanded ? toggle.getAttribute('data-label-open') : toggle.getAttribute('data-label-close');
+            list.hidden = expanded;
+        });
+    });
+}());
+
 (function () {
     var modal = document.getElementById('admin-confirm-modal');
     if (!modal) {
