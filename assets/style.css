@@ -71,3 +71,8 @@
 .gallery-breadcrumbs .breadcrumb-back{background:var(--ink);border-color:var(--ink);color:#fff}
 @media(max-width:900px){.gallery-spotlight{grid-template-columns:1fr}.gallery-hero-frame{min-height:auto}.gallery-hero-frame img{height:auto;max-height:none}.gallery-summary{position:static;min-height:0}.gallery-stream{padding:20px 14px}.gallery-images{columns:2 220px}}
 @media(max-width:520px){.gallery-detail{margin-top:14px}.gallery-hero-frame{border-radius:18px}.gallery-hero-frame figcaption{right:10px;bottom:10px;max-width:calc(100% - 20px);border-radius:12px}.gallery-summary{padding:20px 16px;border-radius:18px}.gallery-summary h1,.gallery-empty-heading h1{font-size:1.65rem}.gallery-stream{margin-top:18px;border-radius:18px}.gallery-stream-head{align-items:flex-start}.gallery-images{columns:1}.gallery-frame img{border-radius:12px}.source-link{margin-top:18px}.gallery-empty-heading{padding:28px 18px}.breadcrumbs{gap:6px}.breadcrumbs a,.breadcrumb-back{min-height:26px;padding:5px 9px;font-size:.68rem}}
+.hero-gallery{padding:48px 0 34px;min-height:270px}
+.hero-gallery h1{font-size:clamp(2.5rem,6.2vw,5rem);line-height:.94;margin:10px 0 16px}
+/* 首页首屏在窄屏下继续收紧顶部文字区域，保留标题与说明的呼吸感。 */
+@media(max-width:820px){.hero-gallery{padding-top:44px;min-height:270px}}
+@media(max-width:520px){.hero-gallery{padding:40px 0 28px;min-height:0}.hero-gallery h1{font-size:clamp(2.6rem,13vw,4rem);line-height:.96}}
