@@ -28,6 +28,7 @@ try {
         return strtolower((string) ($source['type'] ?? '')) === 'bangumi';
     }));
     assert_config_sources_test($bangumiSources !== [], '配置加载器未保留 Bangumi 来源。');
+    assert_config_sources_test(($bangumiSources[0]['enabled'] ?? false) === true, 'Bangumi 来源默认未启用。');
     assert_config_sources_test(($bangumiSources[0]['category'] ?? '') === '二次元', 'Bangumi 来源默认分类不是二次元。');
     echo "config sources tests passed\n";
 } finally {

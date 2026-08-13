@@ -154,7 +154,7 @@ docker compose -f docker-compose.prod.yml up --build -d
 
 ## Bangumi API 来源
 
-项目支持通过 Bangumi v0 API 抓取动画条目的公开信息和封面。默认模板中该来源为关闭状态，确认展示许可后，在 `config/local.php` 中启用：
+项目支持通过 Bangumi v0 API 抓取动画条目的公开信息和封面。默认模板和 FTP 发布工作流会启用该来源；如需关闭，请在 `config/local.php` 中将对应来源设为 `enabled => false`：
 
 ```php
 [

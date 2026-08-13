@@ -140,8 +140,9 @@ jobs:
           pexels_api_key = os.environ.get('PEXELS_API_KEY', '').strip()
           if pexels_api_key:
               lines.append(f"    'pexels_api_key' => {php_string(pexels_api_key)},")
+          lines.append("    'sources' => [")
+          if pexels_api_key:
               lines.extend([
-                  "    'sources' => [",
                   "        5 => [",
                   "            'name' => 'Pexels 精选图片',",
                   "            'type' => 'pexels',",
@@ -153,10 +154,31 @@ jobs:
                   "            'image_size' => 'large',",
                   "            'request_timeout' => 20,",
                   "        ],",
-                  "    ],",
               ])
-          lines.extend(["];", ""])
+          lines.extend([
+              "        6 => [",
+              "            'name' => 'Bangumi 动画条目',",
+              "            'type' => 'bangumi',",
+              "            'url' => 'https://api.bgm.tv/v0/subjects',",
+              "            'enabled' => true,",
+              "            'params' => [",
+              "                'type' => 2,",
+              "                'sort' => 'rank',",
+              "                'limit' => 1,",
+              "                'offset' => 0,",
+              "            ],",
+              "            'category' => '二次元',",
+              "            'max_items' => 1,",
+              "            'max_images' => 1,",
+              "            'request_timeout' => 20,",
+              "        ],",
+              "    ],",
+          ])
+          lines.extend(["];"])
           expected = "\n".join(lines).encode("utf-8")
+          expected_text = expected.decode("utf-8")
+          if "'type' => 'bangumi'" not in expected_text or "'category' => '二次元'" not in expected_text:
+              raise RuntimeError("生成的 config/local.php 缺少 Bangumi 来源配置。")
 
           ftp = FTP()
           remote = None
@@ -194,6 +216,7 @@ jobs:
               output.write(f"needs_sync={'true' if needs_sync else 'false'}\n")
           print(f"production_config_needs_sync={needs_sync}")
           print(f"production_config_synced={synced}")
+          print("production_config_bangumi_enabled=true")
           print("production_config_verified=true")
           PY
 
