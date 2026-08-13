@@ -35,12 +35,14 @@ try {
         }
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $perPage = max(1, (int) cfg('per_page', 18));
+        $galleryCount = $repository->countGalleries((int) $category['id']);
         Template::render('category', [
             'pageTitle' => $category['name'],
             'category' => $category,
             'galleries' => $repository->recentGalleries($perPage, ($page - 1) * $perPage, (int) $category['id']),
             'page' => $page,
-            'totalPages' => (int) ceil($repository->countGalleries((int) $category['id']) / $perPage),
+            'galleryCount' => $galleryCount,
+            'totalPages' => (int) ceil($galleryCount / $perPage),
         ]);
         exit;
     }
