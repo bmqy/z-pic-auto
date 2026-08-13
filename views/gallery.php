@@ -12,7 +12,12 @@ $imageCount = count($images);
             <?php if ($heroImage['alt_text'] !== ''): ?><figcaption><?= h($heroImage['alt_text']) ?></figcaption><?php endif; ?>
         </figure>
         <aside class="gallery-summary" aria-label="图集信息">
-            <p class="eyebrow"><a href="<?= h(query_url(['route' => 'category', 'slug' => $gallery['category_slug']])) ?>">← <?= h($gallery['category_name']) ?></a></p>
+            <nav class="breadcrumbs gallery-breadcrumbs" aria-label="面包屑导航">
+                <button type="button" class="breadcrumb-back" onclick="history.back()">返回上一页</button>
+                <a href="<?= h(site_url()) ?>">首页</a>
+                <span aria-hidden="true">/</span>
+                <a href="<?= h(query_url(['route' => 'category', 'slug' => $gallery['category_slug']])) ?>"><?= h($gallery['category_name']) ?></a>
+            </nav>
             <h1><?= h($gallery['title']) ?></h1>
             <?php if ($gallery['description'] !== ''): ?><p class="lead"><?= h($gallery['description']) ?></p><?php endif; ?>
             <div class="gallery-meta"><span><?= $imageCount ?> 张图片</span><span><?= h($gallery['created_at']) ?></span></div>
@@ -20,7 +25,12 @@ $imageCount = count($images);
     </section>
     <?php else: ?>
     <header class="gallery-empty-heading">
-        <p class="eyebrow"><a href="<?= h(query_url(['route' => 'category', 'slug' => $gallery['category_slug']])) ?>">← <?= h($gallery['category_name']) ?></a></p>
+        <nav class="breadcrumbs gallery-breadcrumbs" aria-label="面包屑导航">
+            <button type="button" class="breadcrumb-back" onclick="history.back()">返回上一页</button>
+            <a href="<?= h(site_url()) ?>">首页</a>
+            <span aria-hidden="true">/</span>
+            <a href="<?= h(query_url(['route' => 'category', 'slug' => $gallery['category_slug']])) ?>"><?= h($gallery['category_name']) ?></a>
+        </nav>
         <h1><?= h($gallery['title']) ?></h1>
         <p class="lead">这个图集暂时没有可展示的图片。</p>
     </header>
