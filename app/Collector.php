@@ -483,7 +483,7 @@ final class Collector
             foreach (['large', 'medium', 'common', 'grid', 'small'] as $imageSize) {
                 $candidate = trim((string) ($images[$imageSize] ?? ''));
                 if ($candidate !== '') {
-                    $imageUrl = $candidate;
+                    $imageUrl = $this->normalizeBangumiImageUrl($candidate);
                     break;
                 }
             }
@@ -505,6 +505,18 @@ final class Collector
             ];
         }
         return $result;
+    }
+
+    /**
+     * Bangumi 封面接口仍可能返回 HTTP 地址，统一升级为 HTTPS 后再交给线上服务器下载。
+     */
+    private function normalizeBangumiImageUrl(string $url): string
+    {
+        $url = trim($url);
+        if (stripos($url, 'http://lain.bgm.tv/') === 0) {
+            return 'https://' . substr($url, strlen('http://'));
+        }
+        return $url;
     }
 
     private function parseJson(string $body, string $baseUrl): array

@@ -67,6 +67,18 @@ assert_bangumi_test($items[0]['category'] === '二次元', 'Bangumi 默认分类
 assert_bangumi_test($items[0]['source_url'] === 'https://bgm.tv/subject/12345', 'Bangumi 条目来源链接未生成。');
 assert_bangumi_test($items[0]['images'][0]['url'] === 'https://lain.bgm.tv/pic/cover/l/ab/cd/12345_test.jpg', 'Bangumi 未选择大图封面。');
 
+$httpImageItems = $parse->invoke($collector, json_encode([
+    'data' => [[
+        'id' => 456080,
+        'name' => 'HTTP Cover Anime',
+        'name_cn' => 'HTTP 封面动画',
+        'images' => ['large' => 'http://lain.bgm.tv/pic/cover/l/ce/e2/456080_C4q4C.jpg'],
+    ]],
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), [
+    'category' => '二次元',
+]);
+assert_bangumi_test($httpImageItems[0]['images'][0]['url'] === 'https://lain.bgm.tv/pic/cover/l/ce/e2/456080_C4q4C.jpg', 'Bangumi HTTP 封面地址未升级为 HTTPS。');
+
 $calendarItems = $parse->invoke($collector, json_encode([[
     'weekday' => ['en' => 'Mon'],
     'items' => [[
