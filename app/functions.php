@@ -134,6 +134,10 @@ function request_url(string $url, int $timeout, array $requestHeaders = []): arr
             CURLOPT_USERAGENT => (string) cfg('user_agent', 'Z-Pic-Auto'),
             CURLOPT_HTTPHEADER => $headers,
         ];
+        if (defined('CURL_IPRESOLVE_V4')) {
+            // 部分生产主机的 IPv6 出口不可达，优先使用 IPv4 避免图片 CDN 连接超时。
+            $curlOptions[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+        }
         if (!cfg('verify_ssl', true)) {
             $curlOptions[CURLOPT_SSL_VERIFYPEER] = false;
             $curlOptions[CURLOPT_SSL_VERIFYHOST] = 0;

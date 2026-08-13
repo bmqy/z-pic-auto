@@ -536,11 +536,14 @@ final class Collector
                 'images' => [[
                     'url' => $imageUrl,
                     'alt' => $title,
-                ] + ($subjectId > 0 ? [
-                    'fallback_urls' => [
-                        'https://api.bgm.tv/v0/subjects/' . $subjectId . '/image?type=large',
-                    ],
-                ] : [])],
+                ] + [
+                    'fallback_urls' => array_values(array_unique(array_merge(
+                        $this->bangumiImageFallbackUrls($imageUrl),
+                        $subjectId > 0 ? [
+                            'https://api.bgm.tv/v0/subjects/' . $subjectId . '/image?type=large',
+                        ] : []
+                    ))),
+                ]],
             ];
         }
         return $result;
@@ -556,6 +559,25 @@ final class Collector
             return 'https://' . substr($url, strlen('http://'));
         }
         return $url;
+    }
+
+    /**
+     * 生成 Bangumi 封面的备用图片域名；这些地址保持同一图片路径，不依赖 API 302 到 lain.bgm.tv。
+     */
+    private function bangumiImageFallbackUrls(string $url): array
+    {
+        $parts = parse_url($url);
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if ($host !== 'lain.bgm.tv' || empty($parts['path'])) {
+            return [];
+        }
+        $path = (string) $parts['path'];
+        $query = isset($parts['query']) ? '?' . $parts['query'] : '';
+        return [
+            'https://navi.bgm.tv' . $path . $query,
+            'https://fast.bgm.tv' . $path . $query,
+            'https://chii.in' . $path . $query,
+        ];
     }
 
     private function parseJson(string $body, string $baseUrl): array
