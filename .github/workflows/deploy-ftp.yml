@@ -52,44 +52,32 @@ jobs:
           from ftplib import FTP
 
           configured = os.environ["FTP_SERVER_DIR"].strip()
-          relative = configured.lstrip("/") or "./"
-          candidates = [relative]
-          if configured != relative:
-              candidates.append(configured)
-          if "./" not in candidates:
-              candidates.append("./")
-          failures = []
+          if not configured.startswith("/"):
+              raise SystemExit("FTP_SERVER_DIR 必须使用以 / 开头的绝对 FTP 目录，例如 /Web/")
+          if "\n" in configured or "\r" in configured:
+              raise SystemExit("FTP_SERVER_DIR 不能包含换行符")
 
-          for candidate in candidates:
-              ftp = FTP()
+          server_dir = "/" + configured.strip("/") + "/"
+          if server_dir == "//":
+              raise SystemExit("FTP_SERVER_DIR 不能指向 FTP 根目录")
+
+          ftp = FTP()
+          try:
+              ftp.connect(os.environ["FTP_HOST"], 21, timeout=30)
+              ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
+              login_dir = ftp.pwd()
+              ftp.cwd(server_dir)
+              target_dir = ftp.pwd()
+              print(f"FTP login directory: {login_dir}")
+              print(f"FTP verified target directory: {target_dir}")
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                  output.write(f"server_dir={server_dir}\n")
+              print(f"FTP upload server-dir: {server_dir}")
+          finally:
               try:
-                  ftp.connect(os.environ["FTP_HOST"], 21, timeout=30)
-                  ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
-                  login_dir = ftp.pwd()
-                  ftp.cwd(candidate)
-                  target_dir = ftp.pwd()
-                  print(f"FTP login directory: {login_dir}")
-                  print(f"FTP target directory: {target_dir}")
-                  try:
-                      ftp.cwd("admin")
-                      print(f"FTP admin directory: {ftp.pwd()}")
-                  except Exception as error:
-                      print(f"FTP admin directory check failed under {target_dir}: {error}")
-                  with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                      output.write(f"server_dir={candidate}\n")
-                  break
-              except Exception as error:
-                  failures.append(f"{candidate}: {error}")
-              finally:
-                  try:
-                      ftp.quit()
-                  except Exception:
-                      pass
-          else:
-              print("FTP target directory validation failed:")
-              for failure in failures:
-                  print(f"- {failure}")
-              raise SystemExit(1)
+                  ftp.quit()
+              except Exception:
+                  pass
           PY
 
       - name: Synchronize production configuration
