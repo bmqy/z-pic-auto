@@ -26,3 +26,5 @@
 .admin-gallery-images .admin-images-toggle::after{display:inline-block;width:0;height:0;margin-left:6px;border-top:5px solid currentColor;border-right:4px solid transparent;border-left:4px solid transparent;content:'';vertical-align:middle;transform:rotate(-90deg)}
 .admin-gallery-images[open] .admin-images-toggle::after{content:'';transform:rotate(0deg)}
 @media(max-width:520px){.site-footer .container{display:flex;align-items:center;flex-wrap:wrap;gap:5px 16px}.site-footer .container>span:last-child{margin-left:auto}.site-footer a{display:inline}}
+.admin-gallery-images .admin-images-list{grid-column:1 / -1;justify-self:stretch;align-self:stretch;width:100%;max-width:none;min-width:0}
+.admin-gallery-images .admin-image-row{justify-self:stretch;width:100%;max-width:none;min-width:0}
