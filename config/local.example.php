@@ -112,6 +112,7 @@ return [
             'name' => 'Bangumi 动画条目',
             'type' => 'bangumi',
             'url' => 'https://api.bgm.tv/v0/subjects',
+            'fallback_url' => 'https://api.bgm.tv/calendar',
             'enabled' => true,
             'params' => [
                 'type' => 2,

@@ -17,6 +17,9 @@ final class SourceLogger
                 'type' => strtolower((string) ($source['type'] ?? 'json')),
                 'url' => trim((string) ($source['url'] ?? '')),
             ];
+            if ($payload['type'] === 'bangumi' && !empty($source['params']) && is_array($source['params'])) {
+                $payload['params'] = $source['params'];
+            }
             $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             if ($encoded === false) {
                 $encoded = '{}';

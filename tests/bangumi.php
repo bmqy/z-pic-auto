@@ -39,6 +39,17 @@ assert_bangumi_test($query['sort'] === 'rank', 'Bangumi sort 参数未构造。'
 assert_bangumi_test((int) $query['limit'] === 1, 'Bangumi limit 参数未构造。');
 assert_bangumi_test((int) $query['offset'] === 10, 'Bangumi offset 参数未构造。');
 
+$defaultBangumiSource = array_values(array_filter((array) $config['sources'], function (array $source): bool {
+    return strtolower((string) ($source['type'] ?? '')) === 'bangumi';
+}))[0] ?? [];
+$defaultRequestUrl = $buildUrl->invoke($collector, $defaultBangumiSource, 'bangumi');
+$defaultQuery = [];
+parse_str((string) parse_url($defaultRequestUrl, PHP_URL_QUERY), $defaultQuery);
+assert_bangumi_test((int) ($defaultQuery['type'] ?? 0) === 2, '默认 Bangumi 请求缺少 type 参数。');
+assert_bangumi_test(($defaultQuery['sort'] ?? '') === 'rank', '默认 Bangumi 请求缺少 rank 排序。');
+assert_bangumi_test((int) ($defaultQuery['limit'] ?? 0) === 1, '默认 Bangumi 请求缺少 limit 参数。');
+assert_bangumi_test((int) ($defaultQuery['offset'] ?? -1) === 0, '默认 Bangumi 请求缺少 offset 参数。');
+
 $parse = new ReflectionMethod(Collector::class, 'parseBangumi');
 $parse->setAccessible(true);
 $items = $parse->invoke($collector, file_get_contents(__DIR__ . '/fixtures/bangumi.json'), [
@@ -49,5 +60,19 @@ assert_bangumi_test($items[0]['title'] === '测试动画', 'Bangumi 未优先使
 assert_bangumi_test($items[0]['category'] === '二次元', 'Bangumi 默认分类未设置为二次元。');
 assert_bangumi_test($items[0]['source_url'] === 'https://bgm.tv/subject/12345', 'Bangumi 条目来源链接未生成。');
 assert_bangumi_test($items[0]['images'][0]['url'] === 'https://lain.bgm.tv/pic/cover/l/ab/cd/12345_test.jpg', 'Bangumi 未选择大图封面。');
+
+$calendarItems = $parse->invoke($collector, json_encode([[
+    'weekday' => ['en' => 'Mon'],
+    'items' => [[
+        'id' => 54321,
+        'name' => 'Calendar Anime',
+        'name_cn' => '日历动画',
+        'images' => ['large' => 'https://lain.bgm.tv/pic/cover/l/calendar.jpg'],
+    ]],
+]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), [
+    'category' => '二次元',
+]);
+assert_bangumi_test(count($calendarItems) === 1, 'Bangumi 日历降级响应未解析。');
+assert_bangumi_test($calendarItems[0]['title'] === '日历动画', 'Bangumi 日历未优先使用中文标题。');
 
 echo "bangumi tests passed\n";

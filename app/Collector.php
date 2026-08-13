@@ -246,6 +246,9 @@ final class Collector
             }
             $requestHeaders[] = 'Authorization: ' . $apiKey;
             $requestHeaders[] = 'Accept: application/json';
+        } elseif ($type === 'bangumi') {
+            // Bangumi 是 JSON API，显式声明响应格式，避免网关按通用请求处理。
+            $requestHeaders[] = 'Accept: application/json';
         }
         $body = '';
         $status = 0;
@@ -261,9 +264,24 @@ final class Collector
             }
             sleep(5 * ($attempt + 1));
         }
+        if (($body === '' || ($status >= 400 && $status !== 0)) && $type === 'bangumi') {
+            // Bangumi 列表接口偶发返回 400 时，使用官方日历接口继续提供公开动画条目。
+            $fallbackUrl = trim((string) ($source['fallback_url'] ?? 'https://api.bgm.tv/calendar'));
+            if ($fallbackUrl !== '' && $fallbackUrl !== $requestUrl) {
+                [$fallbackBody, $fallbackStatus, , $fallbackError] = request_url($fallbackUrl, max(5, $timeout), $requestHeaders);
+                if ($fallbackBody !== '' && ($fallbackStatus === 0 || $fallbackStatus < 400)) {
+                    $requestUrl = $fallbackUrl;
+                    $body = $fallbackBody;
+                    $status = $fallbackStatus;
+                    $error = $fallbackError;
+                }
+            }
+        }
         if ($body === '' || ($status >= 400 && $status !== 0)) {
             $sourceName = trim((string) ($source['name'] ?? $source['url']));
-            throw new RuntimeException('来源请求失败 [' . $sourceName . '] ' . (string) $source['url'] . '，HTTP ' . $status . ' ' . $error);
+            $responseSummary = $this->summarizeResponseBody($body);
+            $details = trim($error . ($responseSummary !== '' ? '响应：' . $responseSummary : ''));
+            throw new RuntimeException('来源请求失败 [' . $sourceName . '] ' . (string) $source['url'] . '，HTTP ' . $status . ' ' . $details);
         }
         if ($type === 'json') {
             $items = $this->parseJson($body, $requestUrl);
@@ -315,6 +333,15 @@ final class Collector
     }
 
     /**
+     * 截取远程接口错误响应，避免 Actions 日志丢失真正的校验失败原因。
+     */
+    private function summarizeResponseBody(string $body): string
+    {
+        $summary = trim((string) preg_replace('/\s+/', ' ', strip_tags($body)));
+        return text_slice($summary, 500);
+    }
+
+    /**
      * 将 Bangumi 条目列表转换为项目通用的图集条目。
      */
     private function parseBangumi(string $body, array $source): array
@@ -323,7 +350,20 @@ final class Collector
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new RuntimeException('Bangumi JSON 解析失败：' . json_last_error_msg());
         }
-        $subjects = $data['data'] ?? [];
+        $subjects = $data['data'] ?? null;
+        if ($subjects === null && is_array($data)) {
+            $subjects = [];
+            foreach ($data as $weekday) {
+                if (!is_array($weekday) || !is_array($weekday['items'] ?? null)) {
+                    continue;
+                }
+                foreach ($weekday['items'] as $item) {
+                    if (is_array($item)) {
+                        $subjects[] = $item;
+                    }
+                }
+            }
+        }
         if (!is_array($subjects)) {
             throw new RuntimeException('Bangumi 响应缺少 data 数组。');
         }

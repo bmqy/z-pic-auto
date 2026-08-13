@@ -43,4 +43,13 @@ $resultLines = SourceLogger::formatResults([[
 assert_source_logging_test(strpos($resultLines[0], '[actions-source-result]') === 0, '来源结果日志前缀不正确。');
 assert_source_logging_test(strpos($resultLines[0], 'HTTP 429') !== false, '来源结果日志未记录错误信息。');
 
+$sourceLines = SourceLogger::formatSources([[
+    'enabled' => true,
+    'name' => 'Bangumi 动画条目',
+    'type' => 'bangumi',
+    'url' => 'https://api.bgm.tv/v0/subjects',
+    'params' => ['type' => 2, 'limit' => 1],
+]]);
+assert_source_logging_test(strpos($sourceLines[0], '"params":{"type":2,"limit":1}') !== false, 'Bangumi 请求参数未写入 Actions 配置日志。');
+
 echo "source logging tests passed\n";
