@@ -57,6 +57,7 @@ $nasaLines = SourceLogger::formatSources([[
     'name' => 'NASA 突发新闻',
     'type' => 'rss',
     'url' => 'https://www.nasa.gov/rss/dyn/breaking_news.rss',
+    'fallback_urls' => ['https://www.nasa.gov/news-release/feed/'],
     'request_delay' => 5,
     'retry_delays' => [30, 60, 120],
 ]]);

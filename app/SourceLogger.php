@@ -20,7 +20,7 @@ final class SourceLogger
             if ($payload['type'] === 'bangumi' && !empty($source['params']) && is_array($source['params'])) {
                 $payload['params'] = $source['params'];
             }
-            foreach (['request_delay', 'retry_delays'] as $key) {
+            foreach (['request_delay', 'retry_delays', 'fallback_urls'] as $key) {
                 if (array_key_exists($key, $source)) {
                     $payload[$key] = $source[$key];
                 }

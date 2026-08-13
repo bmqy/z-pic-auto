@@ -79,6 +79,8 @@ $httpImageItems = $parse->invoke($collector, json_encode([
 ]);
 assert_bangumi_test($httpImageItems[0]['images'][0]['url'] === 'https://lain.bgm.tv/pic/cover/l/ce/e2/456080_C4q4C.jpg', 'Bangumi HTTP 封面地址未升级为 HTTPS。');
 
+assert_bangumi_test(($httpImageItems[0]['images'][0]['fallback_urls'][0] ?? '') === 'https://api.bgm.tv/v0/subjects/456080/image?type=large', 'Bangumi image fallback API URL was not generated.');
+
 $calendarItems = $parse->invoke($collector, json_encode([[
     'weekday' => ['en' => 'Mon'],
     'items' => [[

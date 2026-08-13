@@ -8,6 +8,8 @@ final class Collector
     private $translator;
     private $exportWarnings = [];
     private $exportSourceResults = [];
+    private $lastRequestUrl = '';
+    private $lastImageDownloadFailure = '';
 
     public function __construct(?Repository $repository, array $config, ?TranslatorInterface $translator = null)
     {
@@ -79,7 +81,7 @@ final class Collector
                     'exported_items' => $exportedCount,
                     'skipped_items' => $skippedCount,
                     'message' => $message,
-                ]);
+                ], $this->lastRequestUrl !== '' ? ['request_url' => $this->lastRequestUrl] : []);
             } catch (Throwable $error) {
                 $this->exportWarnings[] = '来源 [' . trim((string) ($source['name'] ?? $source['url'])) . '] 跳过：' . $error->getMessage();
                 $this->exportSourceResults[] = array_merge($sourceResult, [
@@ -184,6 +186,9 @@ final class Collector
                     $imageReason = $validImageUrls === []
                         ? '图片 URL 为空或协议无效。'
                         : '图片下载失败、响应不是支持的图片格式或超过大小限制。';
+                    if ($this->lastImageDownloadFailure !== '') {
+                        $imageReason .= ' ' . $this->lastImageDownloadFailure;
+                    }
                     $sourceStats[$entrySourceName]['skip_reasons'][] = $imageReason . ' URL：' . implode('，', array_slice($imageUrls, 0, 3));
                     continue;
                 }
@@ -318,6 +323,7 @@ final class Collector
         $timeout = isset($source['request_timeout']) ? (int) $source['request_timeout'] : (int) $this->config['request_timeout'];
         $type = strtolower((string) ($source['type'] ?? 'json'));
         $requestUrl = $this->buildSourceRequestUrl($source, $type);
+        $this->lastRequestUrl = '';
         $requestDelay = max(0, (int) ($source['request_delay'] ?? 0));
         if ($requestDelay > 0) {
             sleep($requestDelay);
@@ -333,32 +339,39 @@ final class Collector
         } elseif ($type === 'bangumi') {
             // Bangumi 是 JSON API，显式声明响应格式，避免网关按通用请求处理。
             $requestHeaders[] = 'Accept: application/json';
+        } elseif ($type === 'rss' || $type === 'xml') {
+            $requestHeaders[] = 'Accept: application/rss+xml, application/xml;q=0.9, text/xml;q=0.8';
+        }
+        $requestUrls = [$requestUrl];
+        foreach ((array) ($source['fallback_urls'] ?? []) as $fallbackUrl) {
+            $fallbackUrl = trim((string) $fallbackUrl);
+            if ($fallbackUrl !== '' && !in_array($fallbackUrl, $requestUrls, true)) {
+                $requestUrls[] = $fallbackUrl;
+            }
+        }
+        if ($type === 'bangumi') {
+            $fallbackUrl = trim((string) ($source['fallback_url'] ?? 'https://api.bgm.tv/calendar'));
+            if ($fallbackUrl !== '' && !in_array($fallbackUrl, $requestUrls, true)) {
+                $requestUrls[] = $fallbackUrl;
+            }
         }
         $body = '';
         $status = 0;
         $error = '';
-        for ($attempt = 0; $attempt < 3; $attempt++) {
-            [$body, $status, , $error] = request_url($requestUrl, max(5, $timeout), $requestHeaders);
+        foreach ($requestUrls as $candidateUrl) {
+            [$candidateBody, $candidateStatus, $candidateError] = $this->requestSourceWithRetry(
+                $source,
+                $candidateUrl,
+                max(5, $timeout),
+                $requestHeaders
+            );
+            $body = $candidateBody;
+            $status = $candidateStatus;
+            $error = $candidateError;
             if ($body !== '' && ($status === 0 || $status < 400)) {
+                $requestUrl = $candidateUrl;
+                $this->lastRequestUrl = $candidateUrl;
                 break;
-            }
-            $retryable = $status === 0 || $status === 429 || $status >= 500;
-            if (!$retryable || $attempt === 2) {
-                break;
-            }
-            sleep($this->retryDelay($source, $attempt, $status));
-        }
-        if (($body === '' || ($status >= 400 && $status !== 0)) && $type === 'bangumi') {
-            // Bangumi 列表接口偶发返回 400 时，使用官方日历接口继续提供公开动画条目。
-            $fallbackUrl = trim((string) ($source['fallback_url'] ?? 'https://api.bgm.tv/calendar'));
-            if ($fallbackUrl !== '' && $fallbackUrl !== $requestUrl) {
-                [$fallbackBody, $fallbackStatus, , $fallbackError] = request_url($fallbackUrl, max(5, $timeout), $requestHeaders);
-                if ($fallbackBody !== '' && ($fallbackStatus === 0 || $fallbackStatus < 400)) {
-                    $requestUrl = $fallbackUrl;
-                    $body = $fallbackBody;
-                    $status = $fallbackStatus;
-                    $error = $fallbackError;
-                }
             }
         }
         if ($body === '' || ($status >= 400 && $status !== 0)) {
@@ -390,6 +403,28 @@ final class Collector
             unset($item);
         }
         return $items;
+    }
+
+    /**
+     * 请求来源并按配置执行重试；配置的三个退避值分别对应三次重试。
+     */
+    private function requestSourceWithRetry(array $source, string $url, int $timeout, array $requestHeaders): array
+    {
+        $body = '';
+        $status = 0;
+        $error = '';
+        for ($attempt = 0; $attempt < 4; $attempt++) {
+            [$body, $status, , $error] = request_url($url, $timeout, $requestHeaders);
+            if ($body !== '' && ($status === 0 || $status < 400)) {
+                break;
+            }
+            $retryable = $status === 0 || $status === 429 || $status >= 500;
+            if (!$retryable || $attempt >= 3) {
+                break;
+            }
+            sleep($this->retryDelay($source, $attempt, $status));
+        }
+        return [$body, $status, $error];
     }
 
     /**
@@ -501,7 +536,11 @@ final class Collector
                 'images' => [[
                     'url' => $imageUrl,
                     'alt' => $title,
-                ]],
+                ] + ($subjectId > 0 ? [
+                    'fallback_urls' => [
+                        'https://api.bgm.tv/v0/subjects/' . $subjectId . '/image?type=large',
+                    ],
+                ] : [])],
             ];
         }
         return $result;
@@ -752,6 +791,7 @@ final class Collector
 
     private function prepareImages(array $images): array
     {
+        $this->lastImageDownloadFailure = '';
         $prepared = [];
         foreach ($images as $image) {
             $url = (string) ($image['url'] ?? '');
@@ -762,7 +802,24 @@ final class Collector
             $width = 0;
             $height = 0;
             if ($this->config['download_images']) {
-                $download = $this->downloadImage($url);
+                $download = null;
+                $downloadUrls = [$url];
+                $fallbackUrls = (array) ($image['fallback_urls'] ?? []);
+                if (!empty($image['fallback_url'])) {
+                    $fallbackUrls[] = $image['fallback_url'];
+                }
+                foreach ($fallbackUrls as $fallbackUrl) {
+                    $fallbackUrl = trim((string) $fallbackUrl);
+                    if ($fallbackUrl !== '' && preg_match('#^https?://#i', $fallbackUrl) && !in_array($fallbackUrl, $downloadUrls, true)) {
+                        $downloadUrls[] = $fallbackUrl;
+                    }
+                }
+                foreach ($downloadUrls as $downloadUrl) {
+                    $download = $this->downloadImage($downloadUrl);
+                    if ($download !== null) {
+                        break;
+                    }
+                }
                 if ($download === null) {
                     continue;
                 }
@@ -783,12 +840,18 @@ final class Collector
 
     private function downloadImage(string $url): ?array
     {
-        [$body, $status, $contentType] = request_url($url, (int) $this->config['request_timeout']);
+        [$body, $status, $contentType, $error] = request_url(
+            $url,
+            (int) $this->config['request_timeout'],
+            $this->imageRequestHeaders($url)
+        );
         if ($body === '' || ($status >= 400 && $status !== 0) || strlen($body) > (int) $this->config['max_image_bytes']) {
+            $this->lastImageDownloadFailure = '图片请求失败：HTTP ' . $status . ($error !== '' ? '，' . $error : '') . '。';
             return null;
         }
         $info = @getimagesizefromstring($body);
         if ($info === false || empty($info['mime']) || substr((string) $info['mime'], 0, 6) !== 'image/') {
+            $this->lastImageDownloadFailure = '图片响应不是有效图片（Content-Type：' . ($contentType !== '' ? $contentType : '未知') . '）。';
             return null;
         }
         $mime = (string) $info['mime'];
@@ -804,17 +867,33 @@ final class Collector
             $extension = 'bin';
         }
         if ($extension === 'bin') {
+            $this->lastImageDownloadFailure = '图片格式不受支持（' . $mime . '）。';
             return null;
         }
         $filename = sha1($url) . '.' . $extension;
         $absolute = rtrim((string) $this->config['image_dir'], '/\\') . DIRECTORY_SEPARATOR . $filename;
         if (!is_file($absolute) && @file_put_contents($absolute, $body, LOCK_EX) === false) {
+            $this->lastImageDownloadFailure = '图片文件写入失败。';
             return null;
         }
+        $this->lastImageDownloadFailure = '';
         return [
             'path' => trim((string) $this->config['image_url_prefix'], '/') . '/' . $filename,
             'width' => (int) $info[0],
             'height' => (int) $info[1],
         ];
+    }
+
+    /**
+     * 为 Bangumi 图片补充站点要求的请求头，减少 CDN 将服务器请求判定为无效热链。
+     */
+    private function imageRequestHeaders(string $url): array
+    {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $headers = ['Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'];
+        if ($host === 'lain.bgm.tv' || $host === 'api.bgm.tv') {
+            $headers[] = 'Referer: https://bgm.tv/';
+        }
+        return $headers;
     }
 }
