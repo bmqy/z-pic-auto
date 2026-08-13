@@ -23,6 +23,8 @@ $styleFile = __DIR__ . '/../assets/style.css';
         gtag('js', new Date());
         gtag('config', 'G-0YZ4XY57DC');
     </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1597746402027268"
+        crossorigin="anonymous"></script>
     <?php if (is_file($styleFile)) : ?>
     <style><?= file_get_contents($styleFile) ?></style>
     <?php endif; ?>
