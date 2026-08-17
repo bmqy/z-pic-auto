@@ -1,4 +1,4 @@
-name: FTP 发布站点
+name: Tailscale SSH 发布站点
 
 "on":
   push:
@@ -8,85 +8,80 @@ name: FTP 发布站点
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
-  group: z-pic-auto-ftp-deploy
+  group: z-pic-auto-ssh-deploy
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: 上传到 FTP
+    name: 通过 Tailscale SSH 上传
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: 获取代码
         uses: actions/checkout@v6
 
-      - name: 检查 FTP 配置
+      - name: 检查部署配置
         env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_SERVER_DIR: ${{ secrets.SSH_SERVER_DIR }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          for variable in FTP_HOST FTP_USERNAME FTP_PASSWORD FTP_SERVER_DIR; do
+          for variable in \
+            TS_OAUTH_CLIENT_ID TS_AUDIENCE SSH_HOST SSH_USERNAME \
+            SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SSH_SERVER_DIR SITE_URL \
+            ADMIN_TOKEN DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD; do
             if [[ -z "${!variable}" ]]; then
               echo "缺少 GitHub Secret: ${variable}" >&2
               exit 1
             fi
           done
 
-      - name: Resolve FTP target directory
-        id: resolve_ftp_dir
+          if [[ "${SSH_SERVER_DIR}" != /* || "${SSH_SERVER_DIR}" == "/" ]]; then
+            echo "SSH_SERVER_DIR 必须使用非根目录的绝对路径，例如 /var/www/site" >&2
+            exit 1
+          fi
+          if [[ "${SSH_SERVER_DIR}" == *$'\n'* || "${SSH_SERVER_DIR}" == *$'\r'* || "${SSH_SERVER_DIR}" == *"'"* ]]; then
+            echo "SSH_SERVER_DIR 不能包含换行或单引号" >&2
+            exit 1
+          fi
+
+      - name: 连接 Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:ci
+
+      - name: 准备 SSH
         env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_SERVER_DIR: ${{ secrets.FTP_SERVER_DIR }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         shell: bash
         run: |
-          python - <<'PY'
-          import os
-          from ftplib import FTP
+          set -euo pipefail
+          install -m 700 -d "${HOME}/.ssh"
+          printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
+          printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          chmod 600 "${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/known_hosts"
 
-          configured = os.environ["FTP_SERVER_DIR"].strip()
-          if not configured.startswith("/"):
-              raise SystemExit("FTP_SERVER_DIR 必须使用以 / 开头的绝对 FTP 目录，例如 /Web/")
-          if "\n" in configured or "\r" in configured:
-              raise SystemExit("FTP_SERVER_DIR 不能包含换行符")
-
-          server_dir = "/" + configured.strip("/") + "/"
-          if server_dir == "//":
-              raise SystemExit("FTP_SERVER_DIR 不能指向 FTP 根目录")
-
-          ftp = FTP()
-          try:
-              ftp.connect(os.environ["FTP_HOST"], 21, timeout=30)
-              ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
-              login_dir = ftp.pwd()
-              ftp.cwd(server_dir)
-              target_dir = ftp.pwd()
-              print(f"FTP login directory: {login_dir}")
-              print(f"FTP verified target directory: {target_dir}")
-              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-                  output.write(f"server_dir={server_dir}\n")
-              print(f"FTP upload server-dir: {server_dir}")
-          finally:
-              try:
-                  ftp.quit()
-              except Exception:
-                  pass
-          PY
-
-      - name: Synchronize production configuration
-        id: production_config
+      - name: 生成生产配置
         env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          FTP_SERVER_DIR: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
           SITE_URL: ${{ secrets.SITE_URL }}
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
           DB_HOST: ${{ secrets.DB_HOST }}
@@ -100,18 +95,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for variable in SITE_URL ADMIN_TOKEN DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD; do
-            if [[ -z "${!variable}" ]]; then
-              echo "缺少 GitHub Secret: ${variable}" >&2
-              exit 1
-            fi
-          done
-
           python - <<'PY'
           import json
           import os
-          from ftplib import FTP
-          from io import BytesIO
+          from pathlib import Path
 
           def php_string(value):
               return json.dumps(value, ensure_ascii=True)
@@ -137,9 +124,11 @@ jobs:
               "    ],",
               f"    'verify_ssl' => {php_bool(os.environ.get('VERIFY_SSL', '1'))},",
           ]
+
           pexels_api_key = os.environ.get('PEXELS_API_KEY', '').strip()
           if pexels_api_key:
               lines.append(f"    'pexels_api_key' => {php_string(pexels_api_key)},")
+
           lines.append("    'sources' => [")
           if pexels_api_key:
               lines.extend([
@@ -173,156 +162,84 @@ jobs:
               "            'request_timeout' => 20,",
               "        ],",
               "    ],",
+              "];",
           ])
-          lines.extend(["];"])
+
           expected = "\n".join(lines).encode("utf-8")
           expected_text = expected.decode("utf-8")
           if "'type' => 'bangumi'" not in expected_text or "'category' => '二次元'" not in expected_text:
               raise RuntimeError("生成的 config/local.php 缺少 Bangumi 来源配置。")
 
-          ftp = FTP()
-          remote = None
-          try:
-              ftp.connect(os.environ["FTP_HOST"], 21, timeout=30)
-              ftp.login(os.environ["FTP_USERNAME"], os.environ["FTP_PASSWORD"])
-              ftp.cwd(os.environ["FTP_SERVER_DIR"])
-              try:
-                  ftp.cwd("config")
-              except Exception:
-                  ftp.mkd("config")
-                  ftp.cwd("config")
-              buffer = BytesIO()
-              try:
-                  ftp.retrbinary("RETR local.php", buffer.write)
-                  remote = buffer.getvalue()
-              except Exception:
-                  remote = None
-              needs_sync = remote != expected
-              synced = False
-              if needs_sync:
-                  ftp.storbinary("STOR local.php", BytesIO(expected))
-                  verification = BytesIO()
-                  ftp.retrbinary("RETR local.php", verification.write)
-                  if verification.getvalue() != expected:
-                      raise RuntimeError("上传后的 config/local.php 回读内容不一致。")
-                  synced = True
-          finally:
-              try:
-                  ftp.quit()
-              except Exception:
-                  pass
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"needs_sync={'true' if needs_sync else 'false'}\n")
-          print(f"production_config_needs_sync={needs_sync}")
-          print(f"production_config_synced={synced}")
-          print("production_config_bangumi_enabled=true")
+          output_path = Path(os.environ["RUNNER_TEMP"]) / "z-pic-auto-local.php"
+          output_path.write_bytes(expected)
+          print(f"production_config_path={output_path}")
           print("production_config_verified=true")
           PY
 
-      - name: Sync site files (attempt 1)
-        id: ftp_deploy_attempt_1
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          port: 21
-          local-dir: ./
-          server-dir: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
-          state-name: .ftp-deploy-sync-state.json
-          log-level: minimal
-          timeout: 60000
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/.codex/**
-            **/.ftp-deploy-sync-state.json
-            **/.env
-            **/config/local.php
-            **/config/local.php72
-            **/storage/**
-            **/storage-php72/**
-            **/tests/**
-            **/docker-compose*.yml
-            **/Dockerfile*
-
-      - name: Wait before FTP retry 2
-        if: ${{ steps.ftp_deploy_attempt_1.outcome == 'failure' }}
+      - name: 检查 SSH 目标
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_SERVER_DIR: ${{ secrets.SSH_SERVER_DIR }}
         shell: bash
-        run: sleep 10
+        run: |
+          set -euo pipefail
+          SSH_PORT="${SSH_PORT:-22}"
+          remote="${SSH_USERNAME}@${SSH_HOST}"
+          ssh -p "${SSH_PORT}" "${remote}" \
+            "mkdir -p -- '${SSH_SERVER_DIR%/}/config' && test -d '${SSH_SERVER_DIR%/}'"
 
-      - name: Sync site files (attempt 2)
-        id: ftp_deploy_attempt_2
-        if: ${{ steps.ftp_deploy_attempt_1.outcome == 'failure' }}
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          port: 21
-          local-dir: ./
-          server-dir: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
-          state-name: .ftp-deploy-sync-state.json
-          log-level: minimal
-          timeout: 60000
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/.codex/**
-            **/.ftp-deploy-sync-state.json
-            **/.env
-            **/config/local.php
-            **/config/local.php72
-            **/storage/**
-            **/storage-php72/**
-            **/tests/**
-            **/docker-compose*.yml
-            **/Dockerfile*
-
-      - name: Wait before FTP retry 3
-        if: ${{ steps.ftp_deploy_attempt_2.outcome == 'failure' }}
+      - name: 通过 SSH 同步配置和站点文件
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_SERVER_DIR: ${{ secrets.SSH_SERVER_DIR }}
+          PRODUCTION_CONFIG_PATH: ${{ runner.temp }}/z-pic-auto-local.php
         shell: bash
-        run: sleep 20
+        run: |
+          set -euo pipefail
+          SSH_PORT="${SSH_PORT:-22}"
+          remote="${SSH_USERNAME}@${SSH_HOST}"
+          target_dir="${SSH_SERVER_DIR%/}"
 
-      - name: Sync site files (attempt 3)
-        id: ftp_deploy_attempt_3
-        if: ${{ steps.ftp_deploy_attempt_2.outcome == 'failure' }}
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          port: 21
-          local-dir: ./
-          server-dir: ${{ steps.resolve_ftp_dir.outputs.server_dir }}
-          state-name: .ftp-deploy-sync-state.json
-          log-level: minimal
-          timeout: 60000
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/.github/**
-            **/.codex/**
-            **/.ftp-deploy-sync-state.json
-            **/.env
-            **/config/local.php
-            **/config/local.php72
-            **/storage/**
-            **/storage-php72/**
-            **/tests/**
-            **/docker-compose*.yml
-            **/Dockerfile*
+          deploy_once() {
+            scp -P "${SSH_PORT}" "${PRODUCTION_CONFIG_PATH}" \
+              "${remote}:${target_dir}/config/local.php"
 
-      - name: Fail if all FTP attempts failed
-        if: ${{ steps.ftp_deploy_attempt_3.outcome == 'failure' }}
-        shell: bash
-        run: exit 1
+            rsync -az --delete-delay --partial \
+              --exclude='**/.git*' \
+              --exclude='**/.git*/**' \
+              --exclude='**/.github/**' \
+              --exclude='**/.codex/**' \
+              --exclude='**/.ftp-deploy-sync-state.json' \
+              --exclude='**/.env' \
+              --exclude='**/config/local.php' \
+              --exclude='**/config/local.php72' \
+              --exclude='**/storage/**' \
+              --exclude='**/storage-php72/**' \
+              --exclude='**/tests/**' \
+              --exclude='**/docker-compose*.yml' \
+              --exclude='**/Dockerfile*' \
+              -e "ssh -p ${SSH_PORT}" \
+              ./ "${remote}:${target_dir}/"
+
+            ssh -p "${SSH_PORT}" "${remote}" \
+              "test -s '${target_dir}/config/local.php'"
+          }
+
+          for attempt in 1 2 3; do
+            if deploy_once; then
+              echo "SSH 部署成功（第 ${attempt} 次尝试）。"
+              exit 0
+            fi
+            if [[ "${attempt}" -lt 3 ]]; then
+              delay=$((attempt * 10))
+              echo "SSH 部署失败，将在 ${delay} 秒后重试。" >&2
+              sleep "${delay}"
+            fi
+          done
+
+          echo "SSH 部署连续三次失败。" >&2
+          exit 1

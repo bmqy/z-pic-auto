@@ -56,24 +56,32 @@ Actions 日志会输出 `[actions-source-config]` 来源配置行、`[actions-so
 
 线上导入响应还会返回每个来源的 `source_runs` 明细。若图集被跳过，后台运行记录会说明是数据库重复，还是图片 URL 无效、图片下载失败、格式不支持或文件超过大小限制，并附带相关图片 URL。NASA 突发新闻来源默认在请求前等待 5 秒，遇到 429 时按 30 秒、60 秒、120 秒退避重试。
 
-## GitHub Actions FTP 发布
+## GitHub Actions Tailscale SSH 发布
 
-项目提供 `.github/workflows/deploy-ftp.yml`：推送到 `main` 分支或手动运行工作流时，会将站点文件同步到 FTP。工作流会保留服务器上的 `storage/` 和生产配置，不会上传 `.env`、本地数据库、测试文件或 Docker 配置。
+项目提供 `.github/workflows/deploy-ftp.yml`：推送到 `main` 分支或手动运行工作流时，先通过 Tailscale 加入 Tailnet，再使用 SSH/rsync 将站点文件同步到服务器。工作流会保留服务器上的 `storage/`，并单独同步生产配置，不会上传 `.env`、本地数据库、测试文件或 Docker 配置。文件名保留 `deploy-ftp.yml` 以避免已有工作流入口失效。
 
 请在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中配置以下 Secrets：
 
-- `FTP_HOST`：FTP 主机名或 IP。
-- `FTP_USERNAME`：FTP 用户名。
-- `FTP_PASSWORD`：FTP 密码。
-- `FTP_SERVER_DIR`：站点远程目录，例如 `/Web/`。
+- `TS_OAUTH_CLIENT_ID`：Tailscale Workload Identity Federation 使用的 OAuth Client ID。
+- `TS_AUDIENCE`：Tailscale Workload Identity Federation 的 Audience。
+- `SSH_HOST`：服务器在 Tailnet 中的 MagicDNS 主机名，建议不要使用公网地址。
+- `SSH_PORT`：SSH 端口，可选，默认为 `22`。
+- `SSH_USERNAME`：服务器上的部署用户。
+- `SSH_PRIVATE_KEY`：部署用户对应的 SSH 私钥。
+- `SSH_KNOWN_HOSTS`：服务器的 SSH 主机公钥，可在确认指纹后使用 `ssh-keyscan -H <Tailnet 主机名>` 获取。
+- `SSH_SERVER_DIR`：服务器上的站点绝对路径，例如 `/var/www/site`；不能填写根目录 `/`。
 
-当远端缺少或存在空的 `config/local.php` 时，部署工作流会自动使用以下 Secrets 初始化生产配置：
+目标服务器需要安装 `openssh-server` 和 `rsync`，部署用户需要能够写入 `SSH_SERVER_DIR`。工作流通过 SSH 传输，不依赖服务器开放公网 IPv4、IPv6 或 FTP 端口。
+
+Tailscale 管理端需要预先创建 `tag:ci`，并允许该标签访问部署服务器。推荐使用 Tailscale 官方的 Workload Identity Federation；具体创建方式参见 [Tailscale GitHub Action 文档](https://tailscale.com/docs/integrations/github/github-action)。
+
+部署工作流会使用以下 Secrets 生成并同步生产配置 `config/local.php`：
 
 - `SITE_URL`、`ADMIN_TOKEN`
 - `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD`
 - `VERIFY_SSL`：可选，默认为 `1`；仅用于站点服务器请求外部 HTTPS 时的证书校验。
 
-工作流当前使用普通 FTP 21 端口；如果主机要求 FTPS，需要同步修改工作流中的 `protocol` 和 `port`。
+旧的 `FTP_HOST`、`FTP_USERNAME`、`FTP_PASSWORD` 和 `FTP_SERVER_DIR` Secrets 不再使用。目标服务器只需要开放 Tailscale 网络中的 SSH 服务，不需要暴露公网 FTP 端口。
 
 ## Docker 本地调试
 
