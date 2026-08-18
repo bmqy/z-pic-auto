@@ -71,6 +71,7 @@ jobs:
       - name: 准备 SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY_PASSPHRASE: ${{ secrets.SSH_PRIVATE_KEY_PASSPHRASE }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         shell: bash
         run: |
@@ -79,6 +80,23 @@ jobs:
           printf '%s\n' "${SSH_PRIVATE_KEY}" > "${HOME}/.ssh/id_ed25519"
           printf '%s\n' "${SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
           chmod 600 "${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/known_hosts"
+
+          eval "$(ssh-agent -s)"
+          if [[ -n "${SSH_PRIVATE_KEY_PASSPHRASE:-}" ]]; then
+            askpass="${RUNNER_TEMP}/ssh-askpass"
+            printf '%s\n' '#!/usr/bin/env bash' 'printf "%s\\n" "${SSH_PRIVATE_KEY_PASSPHRASE}"' > "${askpass}"
+            chmod 700 "${askpass}"
+            export SSH_ASKPASS="${askpass}"
+            export SSH_ASKPASS_REQUIRE=force
+            export DISPLAY=:0
+            ssh-add "${HOME}/.ssh/id_ed25519" < /dev/null
+            rm -f "${askpass}"
+            unset SSH_ASKPASS SSH_ASKPASS_REQUIRE DISPLAY
+          else
+            ssh-add "${HOME}/.ssh/id_ed25519"
+          fi
+          echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}" >> "${GITHUB_ENV}"
+          echo "SSH_AGENT_PID=${SSH_AGENT_PID}" >> "${GITHUB_ENV}"
 
       - name: 生成生产配置
         env:

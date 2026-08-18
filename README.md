@@ -68,6 +68,7 @@ Actions 日志会输出 `[actions-source-config]` 来源配置行、`[actions-so
 - `SSH_PORT`：SSH 端口，可选，默认为 `22`。
 - `SSH_USERNAME`：服务器上的部署用户。
 - `SSH_PRIVATE_KEY`：部署用户对应的 SSH 私钥。
+- `SSH_PRIVATE_KEY_PASSPHRASE`：SSH 私钥密码；如果私钥没有设置密码，可留空。
 - `SSH_KNOWN_HOSTS`：服务器的 SSH 主机公钥，可在确认指纹后使用 `ssh-keyscan -H <Tailnet 主机名>` 获取。
 - `SSH_SERVER_DIR`：服务器上的站点绝对路径，例如 `/var/www/site`；不能填写根目录 `/`。
 
