@@ -1,3 +1,0 @@
-<%
-Response.Redirect "index.php"
-%>
