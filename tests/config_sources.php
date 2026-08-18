@@ -12,7 +12,9 @@ function assert_config_sources_test(bool $condition, string $message): void
 }
 
 $previousPexelsKey = getenv('PEXELS_API_KEY');
+$previousDbCharset = getenv('DB_CHARSET');
 putenv('PEXELS_API_KEY=config-source-test-key');
+putenv('DB_CHARSET=utf8mb4');
 
 try {
     $config = zpic_load_config(false);
@@ -30,11 +32,17 @@ try {
     assert_config_sources_test($bangumiSources !== [], '配置加载器未保留 Bangumi 来源。');
     assert_config_sources_test(($bangumiSources[0]['enabled'] ?? false) === true, 'Bangumi 来源默认未启用。');
     assert_config_sources_test(($bangumiSources[0]['category'] ?? '') === '二次元', 'Bangumi 来源默认分类不是二次元。');
+    assert_config_sources_test(($config['database']['charset'] ?? '') === 'utf8mb4', 'DB_CHARSET 环境变量未覆盖数据库编码。');
     echo "config sources tests passed\n";
 } finally {
     if ($previousPexelsKey === false) {
         putenv('PEXELS_API_KEY');
     } else {
         putenv('PEXELS_API_KEY=' . $previousPexelsKey);
+    }
+    if ($previousDbCharset === false) {
+        putenv('DB_CHARSET');
+    } else {
+        putenv('DB_CHARSET=' . $previousDbCharset);
     }
 }

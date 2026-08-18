@@ -16,7 +16,7 @@
 1. 将整个目录上传到虚拟主机的网站根目录。
 2. 复制 `config/local.example.php` 为 `config/local.php`。
 3. 修改 `site_url`、`site_name`、`admin_token`、数据库连接和 `sources`。`site_url` 可使用 `http://`。
-4. 在虚拟主机控制面板创建 MySQL 数据库，并将数据库名、用户名、密码填入配置。
+4. 在虚拟主机控制面板创建 MySQL 数据库，并将数据库名、用户名、密码填入配置；同时设置必需的数据库编码环境变量，例如 `DB_CHARSET=utf8`。
 5. 确认 `storage/` 和 `storage/images/` 可写。
 6. 浏览器访问站点首页，应用会自动创建数据库表和默认分类。
 7. 先访问 `/admin/?token=你的令牌` 手动运行一次采集，确认来源格式正确。
@@ -79,7 +79,7 @@ Tailscale 管理端需要预先创建 `tag:ci`，并允许该标签访问部署�
 部署工作流会使用以下 Secrets 生成并同步生产配置 `config/local.php`：
 
 - `SITE_URL`、`ADMIN_TOKEN`
-- `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD`
+- `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USERNAME`、`DB_PASSWORD`、`DB_CHARSET`
 - `VERIFY_SSL`：可选，默认为 `1`；仅用于站点服务器请求外部 HTTPS 时的证书校验。
 
 旧的 `FTP_HOST`、`FTP_USERNAME`、`FTP_PASSWORD` 和 `FTP_SERVER_DIR` Secrets 不再使用。目标服务器只需要开放 Tailscale 网络中的 SSH 服务，不需要暴露公网 FTP 端口。

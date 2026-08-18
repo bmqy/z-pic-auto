@@ -14,7 +14,10 @@ final class Database
             $host = (string) ($database['host'] ?? 'localhost');
             $port = (int) ($database['port'] ?? 3306);
             $name = (string) ($database['name'] ?? '');
-            $charset = (string) ($database['charset'] ?? 'utf8mb4');
+            $charset = trim((string) ($database['charset'] ?? ''));
+            if ($charset === '') {
+                throw new RuntimeException('MySQL 数据库缺少 charset 配置，请设置 DB_CHARSET 环境变量。');
+            }
             $dsn = 'mysql:host=' . $host . ';port=' . $port . ';dbname=' . $name . ';charset=' . $charset;
             $pdo = new PDO($dsn, (string) ($database['user'] ?? ''), (string) ($database['password'] ?? ''), [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

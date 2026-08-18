@@ -68,8 +68,6 @@ function zpic_load_config(bool $requireDatabase = true): array
                 'name' => $databaseName,
                 'user' => $env['DB_USERNAME'],
                 'password' => $env['DB_PASSWORD'],
-                // 兼容老式虚拟主机上的 MySQL 5.x，避免 utf8mb4 不受支持。
-                'charset' => $env['DB_CHARSET'] ?? 'utf8',
             ],
             // 老式虚拟主机可能没有 CA 证书，由 .env 的 VERIFY_SSL=0 显式切换兼容模式。
             'verify_ssl' => !isset($env['VERIFY_SSL']) || !in_array(strtolower($env['VERIFY_SSL']), ['0', 'false', 'no'], true),
@@ -82,6 +80,16 @@ function zpic_load_config(bool $requireDatabase = true): array
     }
 
     $config = array_replace_recursive($defaults, is_array($local) ? $local : []);
+
+    if (strtolower((string) ($config['database']['driver'] ?? '')) === 'mysql') {
+        // 数据库编码必须显式配置，避免不同环境使用不一致的默认值。
+        $databaseCharset = trim((string) ($env['DB_CHARSET'] ?? ($config['database']['charset'] ?? '')));
+        if ($databaseCharset === '') {
+            throw new RuntimeException('MySQL 数据库必须配置 DB_CHARSET 环境变量。');
+        }
+        // 环境变量优先于本地配置文件，确保部署环境可以统一切换编码。
+        $config['database']['charset'] = $databaseCharset;
+    }
 
     if (isset($env['PEXELS_API_KEY']) && trim((string) $env['PEXELS_API_KEY']) !== '') {
         $config['pexels_api_key'] = trim((string) $env['PEXELS_API_KEY']);

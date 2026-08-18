@@ -17,8 +17,7 @@ return [
         'name' => 'zpic_auto',
         'user' => '数据库用户名',
         'password' => '数据库密码',
-        // 兼容老式虚拟主机上的 MySQL 5.x。
-        'charset' => 'utf8',
+        // MySQL 连接编码通过 DB_CHARSET 环境变量配置，例如 DB_CHARSET=utf8。
         // 如果虚拟主机没有 MySQL，可改为 sqlite，并填写 path。
         'path' => __DIR__ . '/../storage/zpic.sqlite',
     ],

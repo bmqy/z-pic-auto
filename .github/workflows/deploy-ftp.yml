@@ -39,13 +39,14 @@ jobs:
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_CHARSET: ${{ secrets.DB_CHARSET }}
         shell: bash
         run: |
           set -euo pipefail
           for variable in \
             TS_OAUTH_CLIENT_ID TS_AUDIENCE SSH_HOST SSH_USERNAME \
             SSH_PRIVATE_KEY SSH_KNOWN_HOSTS SSH_SERVER_DIR SITE_URL \
-            ADMIN_TOKEN DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD; do
+            ADMIN_TOKEN DB_HOST DB_PORT DB_NAME DB_USERNAME DB_PASSWORD DB_CHARSET; do
             if [[ -z "${!variable}" ]]; then
               echo "缺少 GitHub Secret: ${variable}" >&2
               exit 1
@@ -138,7 +139,7 @@ jobs:
               f"        'name' => {php_string(os.environ['DB_NAME'])},",
               f"        'user' => {php_string(os.environ['DB_USERNAME'])},",
               f"        'password' => {php_string(os.environ['DB_PASSWORD'])},",
-              f"        'charset' => {php_string(os.environ.get('DB_CHARSET', '').strip() or 'utf8')},",
+              f"        'charset' => {php_string(os.environ['DB_CHARSET'].strip())},",
               "    ],",
               f"    'verify_ssl' => {php_bool(os.environ.get('VERIFY_SSL', '1'))},",
           ]
