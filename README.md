@@ -26,10 +26,25 @@
 
 生产站点需要开启 Web 服务器的 URL Rewrite：
 
-- IIS：确认已安装 URL Rewrite 模块，项目自带的 `web.config` 会把不存在的文件和目录转给 `index.php`。
-- Apache：项目根目录的 `.htaccess` 会执行相同的前端控制器转发；需要启用 `mod_rewrite` 和允许目录覆盖配置。
+- IIS：确认已安装 URL Rewrite 模块，站点物理路径指向项目根目录，并保留项目自带的 `web.config`。该文件会把不存在的文件和目录转给 `index.php`。
+- Apache：项目根目录的 `.htaccess` 会执行相同的前端控制器转发；需要启用 `mod_rewrite`，并允许目录配置覆盖（`AllowOverride All` 或至少允许 `FileInfo`）。
+- Nginx：`.htaccess` 不会生效，需要在站点配置中加入以下规则，并 reload Nginx：
+
+  ```nginx
+  location / {
+      try_files $uri $uri/ /index.php?$query_string;
+  }
+  ```
+
+不要使用 PHP 内置开发服务器直接承载生产站点；它不会自动把伪静态路径转给 `index.php`。
 
 页面规范地址示例：`/gallery/example-slug`、`/category/nature`、`/sitemap.xml`、`/feed.xml`。搜索页保留 `?q=关键词`，分页保留 `?page=2`。旧的 `index.php?route=gallery&slug=...` 等公开页面地址会返回 301 并跳转到新地址；采集任务接口和图片代理接口继续使用查询参数。
+
+#### 伪静态 404 排查
+
+先访问 `/index.php?route=sitemap.xml`：正常情况下应返回 `301`，并跳转到 `/sitemap.xml`；再访问 `/sitemap.xml`，应返回 `200` 和 XML 内容。
+
+如果旧查询 URL 能打开，但 `/gallery/...` 或 `/sitemap.xml` 直接显示 Web 服务器的英文 `404 Not Found`，说明请求尚未进入 PHP，通常是 Rewrite 模块未安装、配置文件不在站点根目录，或 Nginx 未配置 `try_files`。项目自身的 404 页面会显示中文“页面不存在”，可据此区分服务器 404 和应用 404。
 
 ## 定时任务
 
