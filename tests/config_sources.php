@@ -33,6 +33,11 @@ try {
     assert_config_sources_test(($bangumiSources[0]['enabled'] ?? false) === true, 'Bangumi 来源默认未启用。');
     assert_config_sources_test(($bangumiSources[0]['category'] ?? '') === '二次元', 'Bangumi 来源默认分类不是二次元。');
     assert_config_sources_test(($config['database']['charset'] ?? '') === 'utf8mb4', 'DB_CHARSET 环境变量未覆盖数据库编码。');
+
+    // Actions 只抓取和翻译，不连接数据库，即使没有 DB_CHARSET 也必须能够加载配置。
+    putenv('DB_CHARSET=');
+    $actionsConfig = zpic_load_config(false);
+    assert_config_sources_test(is_array($actionsConfig), 'Actions 无数据库配置时无法加载配置。');
     echo "config sources tests passed\n";
 } finally {
     if ($previousPexelsKey === false) {
