@@ -8,6 +8,7 @@
 - 自动下载图片到 `storage/images`，避免前台依赖外链。
 - 按关键词规则自动归类，去重后生成图集详情页。
 - 服务端渲染首页、分类页、搜索页和图集页。
+- 图集、分类、站点地图和 RSS 使用可抓取的伪静态 URL，旧查询 URL 会永久跳转到规范地址。
 - 自动输出规范链接、Open Graph、JSON-LD、RSS、`robots.txt` 和 `sitemap.xml`。
 - 支持 CLI cron 和虚拟主机“网页定时任务”两种采集方式。
 
@@ -20,6 +21,15 @@
 5. 确认 `storage/` 和 `storage/images/` 可写。
 6. 浏览器访问站点首页，应用会自动创建数据库表和默认分类。
 7. 先访问 `/admin/?token=你的令牌` 手动运行一次采集，确认来源格式正确。
+
+### 伪静态配置
+
+生产站点需要开启 Web 服务器的 URL Rewrite：
+
+- IIS：确认已安装 URL Rewrite 模块，项目自带的 `web.config` 会把不存在的文件和目录转给 `index.php`。
+- Apache：项目根目录的 `.htaccess` 会执行相同的前端控制器转发；需要启用 `mod_rewrite` 和允许目录覆盖配置。
+
+页面规范地址示例：`/gallery/example-slug`、`/category/nature`、`/sitemap.xml`、`/feed.xml`。搜索页保留 `?q=关键词`，分页保留 `?page=2`。旧的 `index.php?route=gallery&slug=...` 等公开页面地址会返回 301 并跳转到新地址；采集任务接口和图片代理接口继续使用查询参数。
 
 ## 定时任务
 

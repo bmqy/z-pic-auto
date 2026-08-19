@@ -2,10 +2,10 @@ Options -Indexes
 DirectoryIndex index.php
 RewriteEngine On
 
-# 允许共享主机在没有 HTTPS 的情况下直接运行；所有页面仍由单一入口处理。
+# 保留真实文件和目录，其他页面交给 PHP 单入口解析伪静态路由。
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
+RewriteRule ^ index.php [QSA,L]
 
 <FilesMatch "^(\.env|config\.php|.*\.sqlite|.*\.log)$">
     Require all denied

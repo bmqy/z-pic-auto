@@ -3,7 +3,39 @@ declare(strict_types=1);
 
 try {
     require __DIR__ . '/app/bootstrap.php';
-    $route = trim((string) ($_GET['route'] ?? ''), '/');
+    $queryRoute = trim((string) ($_GET['route'] ?? ''), '/');
+    $route = $queryRoute;
+    $segments = request_segments();
+    if ($route === '') {
+        if ($segments === []) {
+            $route = 'home';
+        } elseif ($segments[0] === 'gallery' && isset($segments[1]) && count($segments) === 2) {
+            $route = 'gallery';
+            $_GET['slug'] = $segments[1];
+        } elseif ($segments[0] === 'category' && isset($segments[1]) && count($segments) === 2) {
+            $route = 'category';
+            $_GET['slug'] = $segments[1];
+        } elseif (count($segments) === 1 && in_array($segments[0], ['sitemap.xml', 'robots.txt', 'feed.xml'], true)) {
+            $route = $segments[0];
+        } else {
+            $route = '__not_found';
+        }
+    }
+
+    $hasRedirectableSlug = !in_array($queryRoute, ['gallery', 'category'], true)
+        || trim((string) ($_GET['slug'] ?? '')) !== '';
+    if ($queryRoute !== '' && $hasRedirectableSlug && in_array($queryRoute, ['home', 'gallery', 'category', 'sitemap.xml', 'robots.txt', 'feed.xml'], true)) {
+        $redirectParams = ['route' => $queryRoute];
+        if (in_array($queryRoute, ['gallery', 'category'], true)) {
+            $redirectParams['slug'] = (string) ($_GET['slug'] ?? '');
+        }
+        if (isset($_GET['page'])) {
+            $redirectParams['page'] = max(1, (int) $_GET['page']);
+        }
+        header('Location: ' . query_url($redirectParams), true, 301);
+        exit;
+    }
+
     if ($route === '' || $route === 'home') {
         $page = max(1, (int) ($_GET['page'] ?? 1));
         $perPage = max(1, (int) cfg('per_page', 18));
@@ -13,6 +45,8 @@ try {
             'page' => $page,
             'totalPages' => (int) ceil($repository->countGalleries() / $perPage),
             'categories' => $repository->categories(),
+            'canonical' => query_url(['route' => 'home']),
+            'paginationRoute' => 'home',
         ]);
         exit;
     }
@@ -23,7 +57,11 @@ try {
             Template::render('error', ['pageTitle' => '图集不存在', 'message' => '这个图集可能已被删除或尚未发布。']);
             exit;
         }
-        Template::render('gallery', ['pageTitle' => $gallery['title'], 'gallery' => $gallery]);
+        Template::render('gallery', [
+            'pageTitle' => $gallery['title'],
+            'gallery' => $gallery,
+            'canonical' => query_url(['route' => 'gallery', 'slug' => $gallery['slug']]),
+        ]);
         exit;
     }
     if ($route === 'category') {
@@ -43,6 +81,9 @@ try {
             'page' => $page,
             'galleryCount' => $galleryCount,
             'totalPages' => (int) ceil($galleryCount / $perPage),
+            'canonical' => query_url(['route' => 'category', 'slug' => $category['slug']]),
+            'paginationRoute' => 'category',
+            'paginationSlug' => $category['slug'],
         ]);
         exit;
     }
@@ -52,6 +93,7 @@ try {
             'pageTitle' => $query !== '' ? '搜索：' . $query : '搜索图集',
             'query' => $query,
             'galleries' => $query !== '' ? $repository->search($query, 50) : [],
+            'canonical' => query_url(['route' => 'search', 'q' => $query]),
         ]);
         exit;
     }
@@ -106,7 +148,7 @@ try {
     }
     if ($route === 'robots.txt') {
         header('Content-Type: text/plain; charset=UTF-8');
-        echo "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /storage/\nSitemap: " . site_url('index.php?route=sitemap.xml') . "\n";
+        echo "User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /storage/\nSitemap: " . site_url('sitemap.xml') . "\n";
         exit;
     }
     if ($route === 'feed.xml') {

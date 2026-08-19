@@ -18,9 +18,77 @@ function site_url(string $path = ''): string
     return $base . ($path === '' ? '/' : '/' . ltrim($path, '/'));
 }
 
+/**
+ * 获取当前请求去掉站点安装目录后的路径。
+ */
+function request_path(): string
+{
+    $requestUri = (string) (
+        $_SERVER['REQUEST_URI']
+        ?? $_SERVER['UNENCODED_URL']
+        ?? $_SERVER['ORIG_PATH_INFO']
+        ?? $_SERVER['PATH_INFO']
+        ?? '/'
+    );
+    $path = (string) (parse_url($requestUri, PHP_URL_PATH) ?? '/');
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'));
+    $scriptDirectory = str_replace('\\', '/', dirname($scriptName));
+    if ($scriptDirectory === '.') {
+        $scriptDirectory = '';
+    }
+    if ($scriptDirectory !== '' && $scriptDirectory !== '/' && ($path === $scriptDirectory || strpos($path, $scriptDirectory . '/') === 0)) {
+        $path = substr($path, strlen($scriptDirectory));
+    }
+    $scriptFile = '/' . basename($scriptName);
+    if ($path === $scriptFile) {
+        $path = '/';
+    }
+    return '/' . trim($path, '/');
+}
+
+/**
+ * 获取当前请求的伪静态路径片段。
+ */
+function request_segments(): array
+{
+    $path = trim(request_path(), '/');
+    if ($path === '') {
+        return [];
+    }
+    return array_values(array_filter(array_map('rawurldecode', explode('/', $path)), 'strlen'));
+}
+
 function query_url(array $params): string
 {
-    return site_url('index.php?' . http_build_query($params));
+    $route = trim((string) ($params['route'] ?? 'home'), '/');
+    $path = null;
+    $pathParams = $params;
+    unset($pathParams['route']);
+
+    if ($route === 'home') {
+        $path = '';
+    } elseif ($route === 'gallery' && trim((string) ($params['slug'] ?? '')) !== '') {
+        $path = 'gallery/' . rawurlencode(trim((string) $params['slug'], '/'));
+        unset($pathParams['slug']);
+    } elseif ($route === 'category' && trim((string) ($params['slug'] ?? '')) !== '') {
+        $path = 'category/' . rawurlencode(trim((string) $params['slug'], '/'));
+        unset($pathParams['slug']);
+    } elseif (in_array($route, ['sitemap.xml', 'robots.txt', 'feed.xml'], true)) {
+        $path = $route;
+    }
+
+    if ($path !== null) {
+        if (isset($pathParams['page'])) {
+            $pathParams['page'] = max(1, (int) $pathParams['page']);
+            if ($pathParams['page'] === 1) {
+                unset($pathParams['page']);
+            }
+        }
+        $url = site_url($path);
+        return $pathParams === [] ? $url : $url . '?' . http_build_query($pathParams, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    return site_url('index.php?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986));
 }
 
 function image_url(string $path): string
